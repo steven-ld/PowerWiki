@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerWiki - 知识库</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 移动端菜单按钮 -->
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        
+        <!-- 侧边栏遮罩 -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        
+        <!-- 网站头部 -->
+        <div id="siteHeader"></div>
+        
+        <!-- 左侧导航栏 -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo" id="siteLogo">📚 PowerWiki</h1>
+                <p class="subtitle" id="siteSubtitle">知识库</p>
+            </div>
+            
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="搜索..." />
+                <span class="search-icon">🔍</span>
+            </div>
+            
+            <nav class="nav-menu" id="navMenu">
+                <ul class="nav-list" id="postList">
+                    <li class="nav-item loading">加载中...</li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- 中间内容区 -->
+        <main class="main-content">
+            <div id="homeView" class="view active">
+                <!-- 首页内容由模板加载 -->
+            </div>
+
+            <div id="postView" class="view">
+                <article class="post-content">
+                    <header class="post-header">
+                        <h1 id="postTitle"></h1>
+                        <div class="post-meta">
+                            <span id="postDate"></span>
+                            <span id="postSize"></span>
+                        </div>
+                    </header>
+                    <div id="postBody" class="markdown-body"></div>
+                </article>
+            </div>
+        </main>
+
+        <!-- 右侧目录栏 -->
+        <aside class="toc-sidebar" id="tocSidebar">
+            <div class="toc-header">目录</div>
+            <nav class="toc-nav" id="tocNav"></nav>
+        </aside>
+        
+        <!-- 网站底部 -->
+        <div id="siteFooter"></div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>
+

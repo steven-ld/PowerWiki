@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Git repositories
+.git-repos/
+
+# Config files
+config.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Build outputs
+dist/
+build/
+
+# Test files
+test/
+tests/
+*.test.js
+
+# Documentation (keep README and LICENSE)
+docs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+

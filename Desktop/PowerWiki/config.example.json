@@ -1,0 +1,16 @@
+{
+  "gitRepo": "https://github.com/your-username/your-wiki-repo.git",
+  "repoBranch": "main",
+  "mdPath": "",
+  "port": 3000,
+  "title": "PowerWiki",
+  "description": "基于 Git 仓库的 Markdown 知识库",
+  "siteTitle": "PowerWiki",
+  "siteDescription": "知识库",
+  "autoSyncInterval": 180000,
+  "footer": {
+    "copyright": "© 2024 PowerWiki. All rights reserved.",
+    "poweredBy": "Powered by PowerWiki"
+  }
+}
+
