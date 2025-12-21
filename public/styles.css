@@ -401,6 +401,16 @@ body {
   display: block;
 }
 
+/* 首页容器 */
+.home-container {
+  width: 100%;
+}
+
+/* 首页内容（README） */
+.home-content {
+  animation: fadeIn 0.3s ease-in;
+}
+
 /* 欢迎页面 */
 .welcome-section {
   text-align: center;

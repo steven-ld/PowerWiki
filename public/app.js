@@ -53,6 +53,34 @@ async function loadConfig() {
     // 加载首页模板
     if (homeView && config.home) {
       homeView.innerHTML = config.home;
+      
+      // 如果配置了 README 文件，显示其内容
+      if (config.homeContent && config.homeContent.html) {
+        try {
+          const homeContent = document.getElementById('homeContent');
+          const homeWelcome = document.getElementById('homeWelcome');
+          
+          if (homeContent) {
+            homeContent.innerHTML = config.homeContent.html;
+            homeContent.style.display = 'block';
+            
+            // 隐藏默认欢迎页面
+            if (homeWelcome) {
+              homeWelcome.style.display = 'none';
+            }
+            
+            // 为标题添加 ID 并生成目录（如果有标题）
+            generateHomeTOC();
+          }
+        } catch (error) {
+          console.error('加载首页内容失败:', error);
+          // 如果出错，显示默认欢迎页面
+          const homeWelcome = document.getElementById('homeWelcome');
+          if (homeWelcome) {
+            homeWelcome.style.display = 'block';
+          }
+        }
+      }
     }
     
     // 更新页面标题
@@ -141,24 +169,30 @@ function closeMobileMenu() {
 
 // 回到首页
 function goToHome() {
-  homeView.classList.add('active');
-  postView.classList.remove('active');
-  currentPost = null;
-  window.history.pushState({}, '', '/');
+  try {
+    homeView.classList.add('active');
+    postView.classList.remove('active');
+    currentPost = null;
+    window.history.pushState({}, '', '/');
 
-  // 隐藏目录栏
-  const tocSidebar = document.getElementById('tocSidebar');
-  if (tocSidebar) {
-    tocSidebar.style.display = 'none';
+    // 隐藏目录栏
+    const tocSidebar = document.getElementById('tocSidebar');
+    if (tocSidebar) {
+      tocSidebar.style.display = 'none';
+    }
+
+    // 清除导航栏选中状态
+    if (postList) {
+      postList.querySelectorAll('.nav-item-file').forEach(item => {
+        item.classList.remove('active');
+      });
+    }
+
+    // 滚动到顶部
+    window.scrollTo(0, 0);
+  } catch (error) {
+    console.error('返回首页失败:', error);
   }
-
-  // 清除导航栏选中状态
-  postList.querySelectorAll('.nav-item-file').forEach(item => {
-    item.classList.remove('active');
-  });
-
-  // 滚动到顶部
-  window.scrollTo(0, 0);
 }
 
 // 设置路由
@@ -567,6 +601,21 @@ style.textContent = `
   }
 `;
 document.head.appendChild(style);
+
+// 生成首页目录（如果首页有 README 内容）
+function generateHomeTOC() {
+  const homeContent = document.getElementById('homeContent');
+  if (!homeContent) return;
+  
+  const headings = homeContent.querySelectorAll('h1, h2, h3, h4, h5, h6');
+  if (headings.length === 0) return;
+
+  // 为标题添加 ID
+  headings.forEach((heading, index) => {
+    const id = `home-heading-${index}`;
+    heading.id = id;
+  });
+}
 
 // 生成文章目录
 function generateTOC() {

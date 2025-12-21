@@ -2,7 +2,7 @@
   "gitRepo": "https://github.com/steven-ld/PowerWiki.git",
   "repoBranch": "master",
   "mdPath": "",
-  "port": 3000,
+  "port": 3150,
   "title": "PowerWiki",
   "description": "基于 Git 仓库的 Markdown 知识库",
   "siteTitle": "PowerWiki",
@@ -11,6 +11,9 @@
   "footer": {
     "copyright": "© 2024 PowerWiki. All rights reserved.",
     "poweredBy": "Powered by PowerWiki"
+  },
+  "pages": {
+    "home": "README.md",
+    "about": "ABOUT.md"
   }
 }
-

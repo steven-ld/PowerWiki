@@ -67,6 +67,18 @@ function recordPostView(filePath) {
 let config;
 try {
   config = require('./config.json');
+  
+  // 验证配置
+  if (!config.gitRepo) {
+    console.error('❌ 配置错误: gitRepo 是必需的');
+    process.exit(1);
+  }
+  
+  // 设置默认值
+  config.pages = config.pages || {};
+  config.pages.home = config.pages.home || '';
+  config.pages.about = config.pages.about || '';
+  
 } catch (error) {
   console.error('❌ 配置文件加载失败，请确保 config.json 文件存在');
   console.error('💡 提示: 可以复制 config.example.json 为 config.json 并修改配置');
@@ -330,16 +342,48 @@ app.get('/api/post/*', async (req, res) => {
 });
 
 // API: 获取网站配置
-app.get('/api/config', (req, res) => {
+app.get('/api/config', async (req, res) => {
   const headerTemplate = readTemplate('header');
   const footerTemplate = readTemplate('footer');
   const homeTemplate = readTemplate('home');
 
   const stats = readStats();
 
+  // 获取配置的页面路径
+  const homePagePath = config.pages.home || '';
+  const aboutPagePath = config.pages.about || '';
+
+  // 尝试读取 README 文件作为首页内容
+  let homeContent = null;
+  if (homePagePath) {
+    try {
+      const content = await gitManager.readMarkdownFile(homePagePath);
+      const parsed = parseMarkdown(content);
+      homeContent = {
+        html: parsed.html,
+        title: parsed.title || '首页',
+        path: homePagePath
+      };
+    } catch (error) {
+      // 如果文件不存在，静默失败，使用默认首页
+      console.warn(`⚠️  无法读取首页文件 ${homePagePath}:`, error.message);
+      console.warn('💡 将使用默认欢迎页面');
+    }
+  }
+
+  // 构建关于页面路径
+  let aboutPath = '/post/README.md'; // 默认值
+  if (aboutPagePath) {
+    aboutPath = `/post/${encodeURIComponent(aboutPagePath)}`;
+  } else if (homePagePath && !aboutPagePath) {
+    // 如果没有配置 about，但有 home，使用 home 作为 about
+    aboutPath = `/post/${encodeURIComponent(homePagePath)}`;
+  }
+
   const headerData = {
     siteTitle: config.siteTitle || config.title,
-    siteDescription: config.siteDescription || config.description
+    siteDescription: config.siteDescription || config.description,
+    aboutPath: aboutPath
   };
 
   const footerData = {
@@ -358,8 +402,13 @@ app.get('/api/config', (req, res) => {
     header: renderTemplate(headerTemplate, headerData),
     footer: renderTemplate(footerTemplate, footerData),
     home: renderTemplate(homeTemplate, homeData),
+    homeContent: homeContent, // README 文件内容
     siteTitle: config.siteTitle || config.title,
-    siteDescription: config.siteDescription || config.description
+    siteDescription: config.siteDescription || config.description,
+    pages: {
+      home: homePagePath,
+      about: aboutPagePath
+    }
   });
 });
 
