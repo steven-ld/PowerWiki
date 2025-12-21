@@ -307,9 +307,14 @@ function renderTreeNodes(node, prefix = '') {
   // 渲染文件
   if (node.files) {
     node.files.forEach(file => {
+      const fileType = file.type || (file.path.endsWith('.pdf') ? 'pdf' : 'markdown');
+      const icon = fileType === 'pdf' ? '📄' : '📝';
       html += `
-        <li class="nav-item-file" data-path="${file.path}">
-          <div class="nav-item-title">${escapeHtml(file.name)}</div>
+        <li class="nav-item-file" data-path="${file.path}" data-type="${fileType}">
+          <div class="nav-item-title">
+            <span class="file-icon">${icon}</span>
+            ${escapeHtml(file.name)}
+          </div>
         </li>
       `;
     });
@@ -327,7 +332,7 @@ function filterPosts(keyword) {
 
   // 搜索时使用扁平列表
   const filtered = postsFlat.filter(post => {
-    const fileName = post.name.replace(/\.(md|markdown)$/i, '');
+    const fileName = post.name.replace(/\.(md|markdown|pdf)$/i, '');
     const searchText = `${fileName} ${post.name} ${post.path}`.toLowerCase();
     return searchText.includes(keyword.toLowerCase());
   });
@@ -350,7 +355,7 @@ function buildDirectoryTree(files) {
       const isFile = i === parts.length - 1;
 
       if (isFile) {
-        const fileName = part.replace(/\.(md|markdown)$/i, '');
+        const fileName = part.replace(/\.(md|markdown|pdf)$/i, '');
         if (!current.files) {
           current.files = [];
         }
@@ -359,7 +364,8 @@ function buildDirectoryTree(files) {
           path: file.path,
           fullName: file.name,
           modified: file.modified,
-          size: file.size
+          size: file.size,
+          type: file.type || (file.path.endsWith('.pdf') ? 'pdf' : 'markdown')
         });
       } else {
         if (!current.dirs) {
@@ -392,10 +398,50 @@ async function loadPost(filePath) {
 
     // 渲染文章
     postTitle.textContent = post.title;
-    postBody.innerHTML = post.html;
 
-    // 为标题添加 ID 并生成目录
-    generateTOC();
+    // 检查文件类型
+    const fileType = post.type || (filePath.endsWith('.pdf') ? 'pdf' : 'markdown');
+    
+    if (fileType === 'pdf') {
+      // PDF 文件：使用 iframe 显示
+      const pdfUrl = `/api/pdf/${encodeURIComponent(filePath)}`;
+      postBody.innerHTML = `
+        <div class="pdf-viewer-container">
+          <iframe 
+            src="${pdfUrl}" 
+            class="pdf-viewer"
+            title="${escapeHtml(post.title)}"
+            frameborder="0">
+          </iframe>
+          <div class="pdf-actions">
+            <a href="${pdfUrl}" download="${escapeHtml(post.fileInfo.name)}" class="pdf-download-btn">
+              📥 下载 PDF
+            </a>
+          </div>
+        </div>
+      `;
+      
+      // PDF 文件不显示目录
+      const tocSidebar = document.getElementById('tocSidebar');
+      if (tocSidebar) {
+        tocSidebar.style.display = 'none';
+      }
+    } else {
+      // Markdown 文件：正常渲染
+      postBody.innerHTML = post.html;
+      
+      // 为标题添加 ID 并生成目录
+      generateTOC();
+      
+      // 显示目录栏
+      const tocSidebar = document.getElementById('tocSidebar');
+      if (tocSidebar) {
+        tocSidebar.style.display = 'flex';
+      }
+      
+      // 设置目录滚动监听
+      setupTOCScroll();
+    }
 
     // 格式化日期
     const date = new Date(post.fileInfo.modified);
@@ -407,23 +453,19 @@ async function loadPost(filePath) {
 
     // 格式化文件大小
     const sizeKB = (post.fileInfo.size / 1024).toFixed(2);
-    postSize.textContent = `📄 ${sizeKB} KB`;
+    const sizeMB = (post.fileInfo.size / (1024 * 1024)).toFixed(2);
+    if (post.fileInfo.size > 1024 * 1024) {
+      postSize.textContent = `📄 ${sizeMB} MB`;
+    } else {
+      postSize.textContent = `📄 ${sizeKB} KB`;
+    }
 
     // 显示文章视图
     postView.classList.add('active');
     homeView.classList.remove('active');
 
-    // 显示目录栏
-    const tocSidebar = document.getElementById('tocSidebar');
-    if (tocSidebar) {
-      tocSidebar.style.display = 'flex';
-    }
-
     // 滚动到顶部
     window.scrollTo(0, 0);
-
-    // 设置目录滚动监听
-    setupTOCScroll();
 
     // 更新导航栏活动状态
     postList.querySelectorAll('.nav-item-file').forEach(item => {

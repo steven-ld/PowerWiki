@@ -118,7 +118,7 @@ function buildDirectoryTree(files) {
 
       if (isFile) {
         // 这是文件
-        const fileName = part.replace(/\.(md|markdown)$/i, ''); // 去掉扩展名
+        const fileName = part.replace(/\.(md|markdown|pdf)$/i, ''); // 去掉扩展名
         if (!current.files) {
           current.files = [];
         }
@@ -127,7 +127,8 @@ function buildDirectoryTree(files) {
           path: file.path,
           fullName: file.name,
           modified: file.modified,
-          size: file.size
+          size: file.size,
+          type: file.type || (file.name.endsWith('.pdf') ? 'pdf' : 'markdown')
         });
       } else {
         // 这是目录
@@ -169,20 +170,38 @@ app.get('/api/post/*', async (req, res) => {
       // 如果解码失败，使用原始路径
       console.warn('路径解码失败，使用原始路径:', filePath);
     }
-    const content = await gitManager.readMarkdownFile(filePath);
-    const parsed = parseMarkdown(content);
-    const fileInfo = await gitManager.getFileInfo(filePath);
+    
+    // 检查是否为 PDF 文件
+    if (filePath.endsWith('.pdf')) {
+      const fileInfo = await gitManager.getFileInfo(filePath);
+      const fileName = fileInfo.name.replace(/\.pdf$/i, '');
+      
+      res.json({
+        type: 'pdf',
+        title: fileName,
+        fileInfo,
+        path: filePath,
+        html: '', // PDF 不需要 HTML
+        description: 'PDF 文档'
+      });
+    } else {
+      // Markdown 文件处理
+      const content = await gitManager.readMarkdownFile(filePath);
+      const parsed = parseMarkdown(content);
+      const fileInfo = await gitManager.getFileInfo(filePath);
 
-    // 使用文件名作为标题（去掉扩展名）
-    const fileName = fileInfo.name.replace(/\.(md|markdown)$/i, '');
-    const title = fileName || parsed.title;
+      // 使用文件名作为标题（去掉扩展名）
+      const fileName = fileInfo.name.replace(/\.(md|markdown)$/i, '');
+      const title = fileName || parsed.title;
 
-    res.json({
-      ...parsed,
-      title, // 使用文件名作为标题
-      fileInfo,
-      path: filePath
-    });
+      res.json({
+        ...parsed,
+        type: 'markdown',
+        title, // 使用文件名作为标题
+        fileInfo,
+        path: filePath
+      });
+    }
   } catch (error) {
     console.error('获取文章失败:', error);
     res.status(404).json({ error: '文章不存在' });
@@ -222,6 +241,33 @@ app.get('/api/config', (req, res) => {
 // 首页
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// API: 获取 PDF 文件（直接返回文件流）
+app.get('/api/pdf/*', async (req, res) => {
+  try {
+    let filePath = req.params[0];
+    try {
+      filePath = decodeURIComponent(filePath);
+    } catch (e) {
+      console.warn('路径解码失败，使用原始路径:', filePath);
+    }
+    
+    if (!filePath.endsWith('.pdf')) {
+      return res.status(400).json({ error: '不是 PDF 文件' });
+    }
+    
+    const pdfBuffer = await gitManager.readPdfFile(filePath);
+    const fileName = path.basename(filePath);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('获取 PDF 失败:', error);
+    res.status(404).json({ error: 'PDF 文件不存在' });
+  }
 });
 
 // 文章详情页

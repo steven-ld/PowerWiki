@@ -65,7 +65,7 @@ class GitManager {
         
         if (entry.isDirectory()) {
           await scanDirectory(fullPath);
-        } else if (entry.name.endsWith('.md') || entry.name.endsWith('.markdown')) {
+        } else if (entry.name.endsWith('.md') || entry.name.endsWith('.markdown') || entry.name.endsWith('.pdf')) {
           const relativePath = path.relative(this.repoPath, fullPath);
           const stats = await fs.stat(fullPath);
           
@@ -74,7 +74,8 @@ class GitManager {
             fullPath: fullPath,
             name: entry.name,
             modified: stats.mtime,
-            size: stats.size
+            size: stats.size,
+            type: entry.name.endsWith('.pdf') ? 'pdf' : 'markdown'
           });
         }
       }
@@ -88,6 +89,14 @@ class GitManager {
     const fullPath = path.join(this.repoPath, filePath);
     if (await fs.pathExists(fullPath)) {
       return await fs.readFile(fullPath, 'utf-8');
+    }
+    throw new Error(`文件不存在: ${filePath}`);
+  }
+
+  async readPdfFile(filePath) {
+    const fullPath = path.join(this.repoPath, filePath);
+    if (await fs.pathExists(fullPath)) {
+      return await fs.readFile(fullPath);
     }
     throw new Error(`文件不存在: ${filePath}`);
   }
