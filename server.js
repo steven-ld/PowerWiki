@@ -92,6 +92,9 @@ const gitManager = new GitManager(config.gitRepo, config.repoBranch, './.git-rep
 app.use(express.json());
 app.use(express.static('public'));
 
+// 提供 PDF.js 静态文件（从 node_modules）
+app.use('/pdfjs', express.static(path.join(__dirname, 'node_modules', 'pdfjs-dist')));
+
 /**
  * 读取模板文件
  * @param {string} templateName - 模板名称（不含扩展名）
