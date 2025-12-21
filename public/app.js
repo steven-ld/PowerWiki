@@ -46,6 +46,8 @@ async function loadConfig() {
     }
     if (siteFooter && config.footer) {
       siteFooter.innerHTML = config.footer;
+      // 更新统计数据
+      updateFooterStats();
     }
     
     // 加载首页模板
@@ -399,6 +401,14 @@ async function loadPost(filePath) {
     // 渲染文章
     postTitle.textContent = post.title;
 
+    // 显示查看量
+    const viewCount = post.viewCount || 0;
+    const postViewCount = document.getElementById('postViewCount');
+    if (postViewCount) {
+      postViewCount.textContent = `👁️ ${viewCount}`;
+      postViewCount.style.display = 'inline-block';
+    }
+
     // 检查文件类型
     const fileType = post.type || (filePath.endsWith('.pdf') ? 'pdf' : 'markdown');
     
@@ -463,6 +473,9 @@ async function loadPost(filePath) {
     // 显示文章视图
     postView.classList.add('active');
     homeView.classList.remove('active');
+
+    // 更新footer统计信息
+    updateFooterStats();
 
     // 滚动到顶部
     window.scrollTo(0, 0);
@@ -683,6 +696,26 @@ function setupTOCScroll() {
 
   // 初始更新
   setTimeout(updateActiveTOC, 100);
+}
+
+// 更新footer统计信息
+async function updateFooterStats() {
+  try {
+    const response = await fetch('/api/stats');
+    const stats = await response.json();
+    
+    const totalViewsEl = document.getElementById('totalViews');
+    const totalPostsEl = document.getElementById('totalPosts');
+    
+    if (totalViewsEl) {
+      totalViewsEl.textContent = stats.totalViews || 0;
+    }
+    if (totalPostsEl) {
+      totalPostsEl.textContent = stats.postViews ? Object.keys(stats.postViews).length : 0;
+    }
+  } catch (error) {
+    console.error('更新统计信息失败:', error);
+  }
 }
 
 // 处理浏览器前进后退

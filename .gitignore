@@ -1,0 +1,27 @@
+# 依赖
+node_modules/
+package-lock.json
+
+# 统计数据
+.stats.json
+
+# Git 仓库缓存
+.git-repos/
+
+# 配置文件（如果包含敏感信息）
+config.json
+
+# 日志文件
+*.log
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# IDE 文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+

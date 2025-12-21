@@ -16,6 +16,53 @@ const { parseMarkdown } = require('./utils/markdownParser');
 
 const app = express();
 
+// 统计文件路径
+const statsFilePath = path.join(__dirname, '.stats.json');
+
+/**
+ * 读取统计数据
+ * @returns {Object} 统计数据对象
+ */
+function readStats() {
+  try {
+    if (fs.existsSync(statsFilePath)) {
+      const data = fs.readFileSync(statsFilePath, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('读取统计数据失败:', error);
+  }
+  return {
+    totalViews: 0,
+    postViews: {}
+  };
+}
+
+/**
+ * 保存统计数据
+ * @param {Object} stats - 统计数据对象
+ */
+function saveStats(stats) {
+  try {
+    fs.writeFileSync(statsFilePath, JSON.stringify(stats, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('保存统计数据失败:', error);
+  }
+}
+
+/**
+ * 记录文章访问
+ * @param {string} filePath - 文件路径
+ */
+function recordPostView(filePath) {
+  const stats = readStats();
+  stats.totalViews = (stats.totalViews || 0) + 1;
+  stats.postViews = stats.postViews || {};
+  stats.postViews[filePath] = (stats.postViews[filePath] || 0) + 1;
+  saveStats(stats);
+  return stats.postViews[filePath];
+}
+
 // 加载配置文件
 let config;
 try {
@@ -100,7 +147,7 @@ function startAutoSync() {
 
 /**
  * 构建目录树结构
- * 将扁平的文件列表转换为树形结构
+ * 将扁平的文件列表转换为树形结构，并按更新时间排序
  * @param {Array} files - 文件列表
  * @returns {Object} 目录树对象
  */
@@ -136,13 +183,82 @@ function buildDirectoryTree(files) {
           current.dirs = {};
         }
         if (!current.dirs[part]) {
-          current.dirs[part] = {};
+          current.dirs[part] = {
+            _maxModified: null // 用于存储目录下最新文件的修改时间
+          };
         }
         current = current.dirs[part];
       }
     }
   });
 
+  // 递归排序目录树
+  function sortTree(node) {
+    // 排序文件：按修改时间降序（最新的在前）
+    if (node.files) {
+      node.files.sort((a, b) => {
+        const timeA = new Date(a.modified).getTime();
+        const timeB = new Date(b.modified).getTime();
+        return timeB - timeA; // 降序
+      });
+    }
+
+    // 处理目录
+    if (node.dirs) {
+      const dirs = Object.keys(node.dirs);
+      
+      // 计算每个目录的最大修改时间
+      dirs.forEach(dirName => {
+        const dirNode = node.dirs[dirName];
+        sortTree(dirNode);
+        
+        // 计算目录的最大修改时间（取目录下所有文件和子目录的最大值）
+        let maxTime = null;
+        if (dirNode.files && dirNode.files.length > 0) {
+          maxTime = Math.max(...dirNode.files.map(f => new Date(f.modified).getTime()));
+        }
+        if (dirNode.dirs) {
+          Object.keys(dirNode.dirs).forEach(subDirName => {
+            const subDirMax = dirNode.dirs[subDirName]._maxModified;
+            if (subDirMax && (!maxTime || subDirMax > maxTime)) {
+              maxTime = subDirMax;
+            }
+          });
+        }
+        dirNode._maxModified = maxTime;
+      });
+
+      // 按最大修改时间排序目录（最新的在前）
+      dirs.sort((a, b) => {
+        const timeA = node.dirs[a]._maxModified || 0;
+        const timeB = node.dirs[b]._maxModified || 0;
+        return timeB - timeA; // 降序
+      });
+
+      // 重新构建排序后的目录对象
+      const sortedDirs = {};
+      dirs.forEach(dirName => {
+        sortedDirs[dirName] = node.dirs[dirName];
+      });
+      node.dirs = sortedDirs;
+    }
+  }
+
+  sortTree(tree);
+  
+  // 清理内部属性
+  function cleanTree(node) {
+    if (node._maxModified !== undefined) {
+      delete node._maxModified;
+    }
+    if (node.dirs) {
+      Object.keys(node.dirs).forEach(dirName => {
+        cleanTree(node.dirs[dirName]);
+      });
+    }
+  }
+  
+  cleanTree(tree);
   return tree;
 }
 
@@ -171,6 +287,9 @@ app.get('/api/post/*', async (req, res) => {
       console.warn('路径解码失败，使用原始路径:', filePath);
     }
     
+    // 记录访问量
+    const viewCount = recordPostView(filePath);
+    
     // 检查是否为 PDF 文件
     if (filePath.endsWith('.pdf')) {
       const fileInfo = await gitManager.getFileInfo(filePath);
@@ -182,7 +301,8 @@ app.get('/api/post/*', async (req, res) => {
         fileInfo,
         path: filePath,
         html: '', // PDF 不需要 HTML
-        description: 'PDF 文档'
+        description: 'PDF 文档',
+        viewCount
       });
     } else {
       // Markdown 文件处理
@@ -199,7 +319,8 @@ app.get('/api/post/*', async (req, res) => {
         type: 'markdown',
         title, // 使用文件名作为标题
         fileInfo,
-        path: filePath
+        path: filePath,
+        viewCount
       });
     }
   } catch (error) {
@@ -214,6 +335,8 @@ app.get('/api/config', (req, res) => {
   const footerTemplate = readTemplate('footer');
   const homeTemplate = readTemplate('home');
 
+  const stats = readStats();
+
   const headerData = {
     siteTitle: config.siteTitle || config.title,
     siteDescription: config.siteDescription || config.description
@@ -221,7 +344,9 @@ app.get('/api/config', (req, res) => {
 
   const footerData = {
     currentYear: new Date().getFullYear(),
-    siteTitle: config.siteTitle || config.title
+    siteTitle: config.siteTitle || config.title,
+    totalViews: stats.totalViews || 0,
+    totalPosts: stats.postViews ? Object.keys(stats.postViews).length : 0
   };
 
   const homeData = {
@@ -236,6 +361,12 @@ app.get('/api/config', (req, res) => {
     siteTitle: config.siteTitle || config.title,
     siteDescription: config.siteDescription || config.description
   });
+});
+
+// API: 获取统计数据
+app.get('/api/stats', (req, res) => {
+  const stats = readStats();
+  res.json(stats);
 });
 
 // 首页
