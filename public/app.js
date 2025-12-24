@@ -313,8 +313,9 @@ function renderPostsTree(tree) {
         loadPost(path);
         // 更新 URL
         window.history.pushState({ path }, '', `/post/${encodeURIComponent(path)}`);
-        // 更新活动状态
+        // 更新活动状态（清除所有文件和文件夹的选中状态）
         postList.querySelectorAll('.nav-item-file').forEach(i => i.classList.remove('active'));
+        postList.querySelectorAll('.nav-dir').forEach(d => d.classList.remove('active'));
         item.classList.add('active');
       }
     });
@@ -599,9 +600,12 @@ async function loadPost(filePath) {
     // 滚动到顶部
     window.scrollTo(0, 0);
 
-    // 更新导航栏活动状态
+    // 更新导航栏活动状态（清除所有选中状态）
+    postList.querySelectorAll('.nav-item-file').forEach(i => i.classList.remove('active'));
+    postList.querySelectorAll('.nav-dir').forEach(d => d.classList.remove('active'));
+    
+    // 高亮当前文件
     postList.querySelectorAll('.nav-item-file').forEach(item => {
-      item.classList.remove('active');
       if (item.dataset.path === filePath) {
         item.classList.add('active');
         // 展开所有父目录
