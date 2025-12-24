@@ -2,72 +2,67 @@
 
 <div align="center">
 
-![PowerWiki Logo](https://img.shields.io/badge/PowerWiki-Markdown%20Wiki-blue?style=for-the-badge)
+![PowerWiki](https://img.shields.io/badge/PowerWiki-Git--Based%20Wiki-3370ff?style=for-the-badge)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+![Node](https://img.shields.io/badge/Node.js->=14-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
-一个现代化的基于 Git 仓库的 Markdown 知识库系统，支持自动同步、代码高亮、目录导航等功能。
+A modern Git-based Markdown wiki system with auto-sync, syntax highlighting, and Feishu-style UI.
 
-[特性](#特性) • [快速开始](#快速开始) • [配置说明](#配置说明) • [API 文档](#api-文档) • [贡献](#贡献)
+[English](README.md) • [中文](README_ZH.md)
 
 </div>
 
 ---
 
-## ✨ 特性
+## ✨ Features
 
-- 📚 **自动同步**: 从 Git 仓库自动拉取和更新 Markdown 文档（支持定时自动同步）
-- 🎨 **代码高亮**: 支持多种编程语言的语法高亮（基于 highlight.js）
-- 📱 **响应式设计**: 完美适配各种设备屏幕
-- 🔍 **搜索功能**: 快速搜索文章内容
-- 📑 **目录导航**: 自动生成文章目录，支持点击跳转和滚动高亮
-- 🎯 **飞书文档风格**: 简约而不简单的界面设计
-- 🏗️ **目录树结构**: 自动按 Git 仓库目录结构组织文章，按更新时间排序
-- 🎨 **模板系统**: 支持自定义 Header 和 Footer 模板
-- ⚡ **轻量级**: 无需数据库，直接读取 Git 仓库
-- 📊 **访问统计**: 自动统计文章查看量和网站总访问量
-- 🏠 **自定义首页**: 支持配置 README 文件作为首页内容
-- 📄 **关于页面**: 支持配置 ABOUT 文件作为关于页面
+- 📚 **Auto Sync** - Automatically sync from Git repositories
+- 🎨 **Syntax Highlighting** - Code highlighting powered by highlight.js
+- 📱 **Responsive Design** - Works on all devices
+- 📑 **Auto TOC** - Automatic table of contents generation
+- 🎯 **Feishu-style UI** - Clean and modern interface
+- 📄 **PDF Support** - Render PDF files as high-quality images
+- 📊 **View Statistics** - Track article views
+- ⚡ **Lightweight** - No database required
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 前置要求
+### Prerequisites
 
 - Node.js >= 14.0.0
-- npm >= 6.0.0
-- Git（用于克隆仓库）
+- Git
 
-### 安装步骤
-
-1. **克隆项目**
+### Installation
 
 ```bash
-git clone https://github.com/steven-ld/PowerWiki.git
+# Clone the repository
+git clone https://github.com/your-username/PowerWiki.git
 cd PowerWiki
-```
 
-2. **安装依赖**
-
-```bash
+# Install dependencies
 npm install
-```
 
-3. **配置项目**
-
-复制配置模板并编辑：
-
-```bash
+# Create config file
 cp config.example.json config.json
+
+# Start the server
+npm start
 ```
 
-编辑 `config.json`，设置你的 Git 仓库地址：
+Visit `http://localhost:3000` in your browser.
+
+## ⚙️ Configuration
+
+Edit `config.json`:
 
 ```json
 {
   "gitRepo": "https://github.com/your-username/your-wiki-repo.git",
-  "repoBranch": "master",
-  "mdPath": "",
+  "repoBranch": "main",
   "port": 3000,
-  "siteTitle": "我的知识库",
-  "siteDescription": "知识库",
+  "siteTitle": "My Wiki",
+  "siteDescription": "Knowledge Base",
+  "autoSyncInterval": 180000,
   "pages": {
     "home": "README.md",
     "about": "ABOUT.md"
@@ -75,253 +70,62 @@ cp config.example.json config.json
 }
 ```
 
-4. **启动服务器**
+| Option | Description | Default |
+|--------|-------------|---------|
+| `gitRepo` | Git repository URL | - |
+| `repoBranch` | Branch name | `main` |
+| `mdPath` | Markdown files subdirectory | `""` |
+| `port` | Server port | `3000` |
+| `siteTitle` | Site title | `PowerWiki` |
+| `siteDescription` | Site description | `Wiki` |
+| `autoSyncInterval` | Auto sync interval (ms) | `180000` |
+| `pages.home` | Home page file | `""` |
+| `pages.about` | About page file | `""` |
 
-```bash
-npm start
-```
-
-或者使用开发模式（自动重启）：
-
-```bash
-npm run dev
-```
-
-5. **访问博客**
-
-打开浏览器访问: `http://localhost:3000`
-
-## ⚙️ 配置说明
-
-### 配置文件 (config.json)
-
-| 配置项 | 类型 | 说明 | 默认值 |
-|--------|------|------|--------|
-| `gitRepo` | string | Git 仓库地址（支持 HTTPS） | - |
-| `repoBranch` | string | 分支名称 | `main` |
-| `mdPath` | string | Markdown 文件所在子目录（留空表示根目录） | `""` |
-| `port` | number | 服务器端口 | `3000` |
-| `siteTitle` | string | 网站标题 | `PowerWiki` |
-| `siteDescription` | string | 网站描述 | `知识库` |
-| `autoSyncInterval` | number | 自动同步间隔（毫秒） | `180000` (3分钟) |
-| `footer.copyright` | string | 页脚版权信息 | - |
-| `footer.poweredBy` | string | 页脚 Powered by 信息 | - |
-| `pages.home` | string | 首页文件路径（如 README.md） | `""` |
-| `pages.about` | string | 关于页面文件路径（如 ABOUT.md） | `""` |
-
-### 模板自定义
-
-项目支持自定义 Header 和 Footer 模板：
-
-- `templates/header.html` - 头部模板
-- `templates/footer.html` - 底部模板
-
-模板支持变量替换：
-- `{{siteTitle}}` - 网站标题
-- `{{siteDescription}}` - 网站描述
-- `{{currentYear}}` - 当前年份
-
-## 📖 API 文档
-
-### 获取文章列表
-
-```http
-GET /api/posts
-```
-
-**响应示例：**
-
-```json
-{
-  "tree": {
-    "dirs": {
-      "Pytorch": {
-        "files": [
-          {
-            "name": "Pytorch笔记",
-            "path": "Pytorch/Pytorch笔记.md",
-            "fullName": "Pytorch笔记.md",
-            "modified": "2025-12-21T02:56:02.289Z",
-            "size": 3038
-          }
-        ]
-      }
-    }
-  },
-  "flat": [...]
-}
-```
-
-### 获取单篇文章
-
-```http
-GET /api/post/:filePath
-```
-
-**参数：**
-- `filePath` - 文章文件路径（URL 编码）
-
-**响应示例：**
-
-```json
-{
-  "html": "<h1>文章标题</h1><p>文章内容...</p>",
-  "title": "文章标题",
-  "description": "文章描述",
-  "fileInfo": {
-    "path": "Pytorch/Pytorch笔记.md",
-    "name": "Pytorch笔记.md",
-    "modified": "2025-12-21T02:56:02.289Z",
-    "size": 3038
-  },
-  "path": "Pytorch/Pytorch笔记.md"
-}
-```
-
-### 获取网站配置
-
-```http
-GET /api/config
-```
-
-**响应示例：**
-
-```json
-{
-  "header": "<header>...</header>",
-  "footer": "<footer>...</footer>",
-  "home": "<div>...</div>",
-  "siteTitle": "PowerWiki",
-  "siteDescription": "知识库"
-}
-```
-
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 PowerWiki/
-├── server.js              # Express 服务器主文件
-├── config.json            # 配置文件（需要创建）
-├── config.example.json    # 配置模板
-├── package.json           # 项目依赖配置
-├── README.md              # 项目说明文档
-├── LICENSE                # MIT 许可证
-├── .gitignore            # Git 忽略文件
+├── server.js              # Express server
+├── config.example.json    # Config template
+├── package.json           # Dependencies
 ├── utils/
-│   ├── gitManager.js      # Git 仓库管理模块
-│   └── markdownParser.js  # Markdown 解析模块
+│   ├── gitManager.js      # Git operations
+│   └── markdownParser.js  # Markdown parser
 ├── templates/
-│   ├── header.html        # 头部模板
-│   └── footer.html        # 底部模板
+│   ├── header.html        # Header template
+│   ├── footer.html        # Footer template
+│   └── home.html          # Home template
 └── public/
-    ├── index.html         # 前端页面
-    ├── styles.css         # 样式文件
-    └── app.js             # 前端逻辑
+    ├── index.html         # Frontend HTML
+    ├── styles.css         # Styles
+    └── app.js             # Frontend JS
 ```
 
-## 🛠️ 技术栈
+## 🛠️ Tech Stack
 
-- **后端框架**: Express.js
-- **前端**: 原生 JavaScript (ES6+)
-- **Git 操作**: simple-git
-- **Markdown 解析**: marked
-- **代码高亮**: highlight.js
-- **样式**: 自定义 CSS（飞书文档风格）
+- **Backend**: Express.js
+- **Frontend**: Vanilla JavaScript
+- **Git**: simple-git
+- **Markdown**: marked + highlight.js
+- **PDF**: pdfjs-dist
 
-## 🎨 功能特性详解
+## 📄 License
 
-### 自动同步
+MIT License - see [LICENSE](LICENSE) for details.
 
-- 启动时自动克隆或更新 Git 仓库
-- 支持定时自动同步（默认 3 分钟）
-- 可在配置文件中自定义同步间隔
+## 🙏 Credits
 
-### 目录树结构
-
-- 自动按 Git 仓库目录结构组织文章
-- 支持多级目录嵌套
-- 目录可折叠/展开
-- 文件名自动作为文章标题
-
-### 文章目录（TOC）
-
-- 自动从文章标题生成目录
-- 支持多级标题（h1-h6）
-- 点击目录项平滑滚动到对应位置
-- 滚动时自动高亮当前标题
-
-### 搜索功能
-
-- 实时搜索文章标题和内容
-- 支持中文搜索
-- 搜索结果按目录结构展示
-
-### 访问统计
-
-- 自动记录每篇文章的查看量
-- 统计网站总访问量
-- 在文章右上角显示查看量
-- 在页脚显示总访问量和文章数
-
-### 自定义首页和关于页面
-
-- 支持配置 README 文件作为首页内容
-- 支持配置 ABOUT 文件作为关于页面
-- 如果未配置，将显示默认欢迎页面
-- 配置示例：
-  ```json
-  {
-    "pages": {
-      "home": "README.md",
-      "about": "ABOUT.md"
-    }
-  }
-  ```
-
-### 目录排序
-
-- 文件和目录按更新时间自动排序
-- 最新更新的文件排在最前面
-- 目录排序基于目录下最新文件的修改时间
-
-## 🤝 贡献
-
-欢迎贡献代码！请遵循以下步骤：
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
-## 📝 更新日志
-
-详见 [CHANGELOG.md](CHANGELOG.md)
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
-
-## 🙏 致谢
-
-- [Express.js](https://expressjs.com/) - Web 框架
-- [marked](https://marked.js.org/) - Markdown 解析器
-- [highlight.js](https://highlightjs.org/) - 代码高亮
-- [simple-git](https://github.com/steveukx/git-js) - Git 操作库
-
-## 📧 联系方式
-
-如有问题或建议，请通过以下方式联系：
-
-- 提交 [Issue](https://github.com/steven-ld/PowerWiki/issues)
-- 发送邮件至: 1852896007@qq.com
+- [Express.js](https://expressjs.com/)
+- [marked](https://marked.js.org/)
+- [highlight.js](https://highlightjs.org/)
+- [simple-git](https://github.com/steveukx/git-js)
+- [PDF.js](https://mozilla.github.io/pdf.js/)
 
 ---
 
 <div align="center">
 
-**如果这个项目对你有帮助，请给个 ⭐ Star！**
-
-Made with ❤️ by PowerWiki Team
+**If this project helps you, please give it a ⭐ Star!**
 
 </div>

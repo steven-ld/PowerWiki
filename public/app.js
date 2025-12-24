@@ -8,7 +8,6 @@ let isMobileMenuOpen = false;
 const postList = document.getElementById('postList');
 const searchInput = document.getElementById('searchInput');
 const siteLogo = document.getElementById('siteLogo');
-const siteSubtitle = document.getElementById('siteSubtitle');
 const homeView = document.getElementById('homeView');
 const postView = document.getElementById('postView');
 const postTitle = document.getElementById('postTitle');
@@ -17,6 +16,9 @@ const postDate = document.getElementById('postDate');
 const postSize = document.getElementById('postSize');
 const siteHeader = document.getElementById('siteHeader');
 const siteFooter = document.getElementById('siteFooter');
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
 
 // 初始化
 document.addEventListener('DOMContentLoaded', async () => {
@@ -32,12 +34,9 @@ async function loadConfig() {
     const response = await fetch('/api/config');
     const config = await response.json();
     
-    // 更新标题和描述
+    // 更新标题
     if (siteLogo) {
-      siteLogo.textContent = config.siteTitle || '📚 PowerWiki';
-    }
-    if (siteSubtitle) {
-      siteSubtitle.textContent = config.siteDescription || '知识库';
+      siteLogo.textContent = config.siteTitle || 'PowerWiki';
     }
     
     // 加载 header 和 footer
@@ -257,7 +256,9 @@ function setupRouting() {
 // 加载文章列表
 async function loadPosts() {
   try {
-    postList.innerHTML = '<li class="nav-item loading">加载中...</li>';
+    postList.innerHTML = `<li class="nav-item loading">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+    </li>`;
     const response = await fetch('/api/posts');
     const data = await response.json();
     postsTree = data.tree || {};
@@ -269,10 +270,25 @@ async function loadPosts() {
   }
 }
 
+// 切换目录展开/折叠状态
+function toggleDirExpand(dirItem) {
+  const children = dirItem.querySelector('.nav-dir-children');
+  if (children) {
+    const isExpanded = dirItem.classList.contains('expanded');
+    if (isExpanded) {
+      dirItem.classList.remove('expanded');
+      children.style.display = 'none';
+    } else {
+      dirItem.classList.add('expanded');
+      children.style.display = 'block';
+    }
+  }
+}
+
 // 渲染目录树
 function renderPostsTree(tree) {
   if (!tree || (Object.keys(tree.dirs || {}).length === 0 && (tree.files || []).length === 0)) {
-    postList.innerHTML = '<li class="nav-item loading">暂无文章</li>';
+    postList.innerHTML = '<li class="nav-item loading" style="color: var(--text-placeholder);">暂无文章</li>';
     return;
   }
 
@@ -304,22 +320,48 @@ function renderPostsTree(tree) {
     });
   });
 
-  // 添加目录折叠/展开事件
+  // 添加目录折叠/展开事件（点击箭头图标）
   postList.querySelectorAll('.nav-dir-toggle').forEach(toggle => {
     toggle.addEventListener('click', (e) => {
       e.stopPropagation();
       const dirItem = toggle.closest('.nav-dir');
-      const children = dirItem.querySelector('.nav-dir-children');
-      if (children) {
-        const isExpanded = dirItem.classList.contains('expanded');
-        if (isExpanded) {
-          dirItem.classList.remove('expanded');
-          children.style.display = 'none';
-        } else {
-          dirItem.classList.add('expanded');
-          children.style.display = 'block';
-        }
+      toggleDirExpand(dirItem);
+    });
+  });
+
+  // 添加目录名称点击事件（点击目录名称：有 README 则加载，同时展开/折叠）
+  postList.querySelectorAll('.nav-dir-name').forEach(dirName => {
+    dirName.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dirItem = dirName.closest('.nav-dir');
+      const readmePath = dirName.dataset.readmePath;
+      
+      // 如果有 README，且不是当前已加载的文章，才加载
+      if (readmePath && (!currentPost || currentPost.path !== readmePath)) {
+        loadPost(readmePath);
+        window.history.pushState({ path: readmePath }, '', `/post/${encodeURIComponent(readmePath)}`);
+        
+        // 高亮当前目录
+        postList.querySelectorAll('.nav-item-file').forEach(i => i.classList.remove('active'));
+        postList.querySelectorAll('.nav-dir').forEach(d => d.classList.remove('active'));
+        dirItem.classList.add('active');
       }
+      
+      // 同时展开/折叠目录
+      toggleDirExpand(dirItem);
+    });
+  });
+  
+  // 目录头部整体点击事件（用于没有 README 的目录）
+  postList.querySelectorAll('.nav-dir-header').forEach(header => {
+    header.addEventListener('click', (e) => {
+      // 如果点击的是 toggle 或 name，让它们各自的事件处理
+      if (e.target.closest('.nav-dir-toggle') || e.target.closest('.nav-dir-name')) {
+        return;
+      }
+      e.stopPropagation();
+      const dirItem = header.closest('.nav-dir');
+      toggleDirExpand(dirItem);
     });
   });
 
@@ -354,11 +396,14 @@ function renderTreeNodes(node, prefix = '') {
     dirNames.forEach(dirName => {
       const dirNode = node.dirs[dirName];
       const dirPath = prefix ? `${prefix}/${dirName}` : dirName;
+      const hasReadme = dirNode.readme ? 'true' : 'false';
+      const readmePath = dirNode.readme ? dirNode.readme.path : '';
+      
       html += `
-        <li class="nav-dir">
+        <li class="nav-dir" data-has-readme="${hasReadme}" data-readme-path="${readmePath}">
           <div class="nav-dir-header">
             <span class="nav-dir-toggle">▶</span>
-            <span class="nav-dir-name">${escapeHtml(dirName)}</span>
+            <span class="nav-dir-name${dirNode.readme ? ' has-readme' : ''}" ${dirNode.readme ? `data-readme-path="${readmePath}"` : ''}>${escapeHtml(dirName)}</span>
           </div>
           <ul class="nav-dir-children" style="display: none;">
             ${renderTreeNodes(dirNode, dirPath)}
@@ -372,13 +417,13 @@ function renderTreeNodes(node, prefix = '') {
   if (node.files) {
     node.files.forEach(file => {
       const fileType = file.type || (file.path.endsWith('.pdf') ? 'pdf' : 'markdown');
-      const icon = fileType === 'pdf' ? '📄' : '📝';
+      const fileIcon = fileType === 'pdf' 
+        ? `<svg class="nav-file-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.5"/><path d="M14 2v6h6M10 12h4M10 16h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`
+        : `<svg class="nav-file-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M7 8h10M7 12h7M7 16h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
       html += `
         <li class="nav-item-file" data-path="${file.path}" data-type="${fileType}">
-          <div class="nav-item-title">
-            <span class="file-icon">${icon}</span>
-            ${escapeHtml(file.name)}
-          </div>
+          ${fileIcon}
+          <span class="nav-item-title">${escapeHtml(file.name)}</span>
         </li>
       `;
     });
@@ -467,46 +512,28 @@ async function loadPost(filePath) {
     const viewCount = post.viewCount || 0;
     const postViewCount = document.getElementById('postViewCount');
     if (postViewCount) {
-      postViewCount.textContent = `👁️ ${viewCount}`;
-      postViewCount.style.display = 'inline-block';
+      // 追加文字到现有的 SVG 图标后
+      const existingText = postViewCount.querySelector('span.view-text');
+      if (existingText) {
+        existingText.textContent = viewCount;
+      } else {
+        const textSpan = document.createElement('span');
+        textSpan.className = 'view-text';
+        textSpan.textContent = viewCount;
+        postViewCount.appendChild(textSpan);
+      }
     }
 
     // 检查文件类型
     const fileType = post.type || (filePath.endsWith('.pdf') ? 'pdf' : 'markdown');
     
     if (fileType === 'pdf') {
-      // PDF 文件：使用 PDF.js 渲染
+      // PDF 文件：渲染成图片，无任何控件
       const pdfUrl = `/api/pdf/${encodeURIComponent(filePath)}`;
-      postBody.innerHTML = `
-        <div class="pdf-document">
-          <div class="pdf-controls">
-            <button class="pdf-control-btn" id="pdfPrev" title="上一页 (←)">上一页</button>
-            <span class="pdf-page-display">
-              第 <span id="pdfPageNum">1</span> / <span id="pdfPageCount">-</span> 页
-            </span>
-            <button class="pdf-control-btn" id="pdfNext" title="下一页 (→)">下一页</button>
-            <div class="pdf-divider"></div>
-            <button class="pdf-control-btn" id="pdfZoomOut" title="缩小">缩小</button>
-            <span class="pdf-zoom-display"><span id="pdfZoomLevel">100</span>%</span>
-            <button class="pdf-control-btn" id="pdfZoomIn" title="放大">放大</button>
-            <button class="pdf-control-btn" id="pdfFitWidth" title="适应宽度">适应宽度</button>
-            <div class="pdf-divider"></div>
-            <a href="${pdfUrl}" download="${escapeHtml(post.fileInfo.name)}" class="pdf-control-btn pdf-download" title="下载 PDF">
-              下载 PDF
-            </a>
-          </div>
-          <div class="pdf-viewer">
-            <div class="pdf-pages" id="pdfPages"></div>
-            <div class="pdf-loading" id="pdfLoading">
-              <div class="loading-spinner"></div>
-              <p>正在加载 PDF...</p>
-            </div>
-          </div>
-        </div>
-      `;
+      postBody.innerHTML = `<div class="pdf-pages" id="pdfPages"></div>`;
       
       // 加载并渲染 PDF
-      loadPdfViewer(pdfUrl);
+      renderPdfAsImages(pdfUrl);
       
       // PDF 文件不显示目录
       const tocSidebar = document.getElementById('tocSidebar');
@@ -532,19 +559,34 @@ async function loadPost(filePath) {
 
     // 格式化日期
     const date = new Date(post.fileInfo.modified);
-    postDate.textContent = `📅 ${date.toLocaleDateString('zh-CN', {
+    const dateText = date.toLocaleDateString('zh-CN', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
-    })}`;
+    });
+    // 追加文字到现有的 SVG 图标后
+    const existingDateText = postDate.querySelector('span.date-text');
+    if (existingDateText) {
+      existingDateText.textContent = dateText;
+    } else {
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'date-text';
+      dateSpan.textContent = dateText;
+      postDate.appendChild(dateSpan);
+    }
 
     // 格式化文件大小
     const sizeKB = (post.fileInfo.size / 1024).toFixed(2);
     const sizeMB = (post.fileInfo.size / (1024 * 1024)).toFixed(2);
-    if (post.fileInfo.size > 1024 * 1024) {
-      postSize.textContent = `📄 ${sizeMB} MB`;
+    const sizeText = post.fileInfo.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
+    const existingSizeText = postSize.querySelector('span.size-text');
+    if (existingSizeText) {
+      existingSizeText.textContent = sizeText;
     } else {
-      postSize.textContent = `📄 ${sizeKB} KB`;
+      const sizeSpan = document.createElement('span');
+      sizeSpan.className = 'size-text';
+      sizeSpan.textContent = sizeText;
+      postSize.appendChild(sizeSpan);
     }
 
     // 显示文章视图
@@ -810,236 +852,108 @@ async function updateFooterStats() {
   }
 }
 
-// PDF 查看器相关变量
-let pdfDoc = null;
-let pdfPageNum = 1;
-let pdfPageCount = 0;
-let pdfScale = 1.0;
-let pdfRenderTasks = [];
+// 渲染 PDF 为图片（无任何控件，200dpi 高清）
+async function renderPdfAsImages(pdfUrl) {
+  const pagesContainer = document.getElementById('pdfPages');
+  if (!pagesContainer) return;
 
-// 加载 PDF 查看器
-async function loadPdfViewer(pdfUrl) {
+  pagesContainer.innerHTML = '<div class="pdf-loading">加载中...</div>';
+
   try {
-    const loadingEl = document.getElementById('pdfLoading');
-    if (loadingEl) {
-      loadingEl.style.display = 'flex';
-    }
-
-    // 动态导入 PDF.js（使用自托管版本）
+    // 动态导入 PDF.js
     const pdfjsLib = await import('/pdfjs/build/pdf.min.mjs');
-    
-    // 设置 worker（使用自托管版本）
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/build/pdf.worker.min.mjs';
 
-    // 加载 PDF 文档
-    const loadingTask = pdfjsLib.getDocument(pdfUrl);
-    pdfDoc = await loadingTask.promise;
-    pdfPageCount = pdfDoc.numPages;
-    pdfPageNum = 1;
+    // 加载 PDF
+    const pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
+    pagesContainer.innerHTML = '';
 
-    // 更新页面计数
-    const pageCountEl = document.getElementById('pdfPageCount');
-    if (pageCountEl) {
-      pageCountEl.textContent = pdfPageCount;
-    }
+    // 计算缩放比例（适应容器宽度）
+    const containerWidth = pagesContainer.clientWidth || 800;
+    // 300dpi / 72dpi ≈ 4.17，使用 4x 渲染以获得高清效果
+    const dpiScale = 4;
+    
+    // 渲染每一页
+    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+      const page = await pdfDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1 });
+      
+      // 计算显示宽度
+      const displayWidth = Math.min(containerWidth - 20, viewport.width * 2);
+      const displayScale = displayWidth / viewport.width;
+      
+      // 高分辨率渲染
+      const renderScale = displayScale * dpiScale;
+      const renderViewport = page.getViewport({ scale: renderScale });
 
-    // 计算合适的初始缩放比例（适应容器宽度）
-    const pagesContainer = document.getElementById('pdfPages');
-    if (pagesContainer && pdfDoc) {
-      const firstPage = await pdfDoc.getPage(1);
-      const viewport = firstPage.getViewport({ scale: 1.0 });
-      const containerWidth = pagesContainer.clientWidth - 80; // 减去 padding
-      pdfScale = Math.min(containerWidth / viewport.width, 2.0);
-      updateZoomLevel();
-    }
+      const canvas = document.createElement('canvas');
+      canvas.className = 'pdf-page-img';
+      canvas.width = renderViewport.width;
+      canvas.height = renderViewport.height;
+      canvas.dataset.page = pageNum;
+      // 设置 CSS 显示尺寸（缩小到实际显示大小）
+      canvas.style.width = displayWidth + 'px';
+      canvas.style.height = (displayWidth / viewport.width * viewport.height) + 'px';
 
-    // 渲染所有页面
-    await renderAllPages();
+      const context = canvas.getContext('2d');
+      await page.render({ canvasContext: context, viewport: renderViewport }).promise;
 
-    // 设置事件监听
-    setupPdfControls();
+      // 点击放大查看
+      canvas.addEventListener('click', () => {
+        openImageViewer(canvas.toDataURL('image/png'), pageNum, pdfDoc.numPages);
+      });
 
-    if (loadingEl) {
-      loadingEl.style.display = 'none';
+      pagesContainer.appendChild(canvas);
     }
   } catch (error) {
-    console.error('加载 PDF 失败:', error);
-    const loadingEl = document.getElementById('pdfLoading');
-    if (loadingEl) {
-      loadingEl.innerHTML = '<p style="color: #f44336;">PDF 加载失败，请尝试下载文件</p>';
-    }
+    console.error('PDF 加载失败:', error);
+    pagesContainer.innerHTML = '<div class="pdf-error">PDF 加载失败</div>';
   }
 }
 
-// 渲染所有 PDF 页面
-async function renderAllPages() {
-  if (!pdfDoc) return;
+// 图片查看器
+function openImageViewer(imageSrc, currentPage, totalPages) {
+  // 创建遮罩层
+  const overlay = document.createElement('div');
+  overlay.className = 'image-viewer-overlay';
+  overlay.innerHTML = `
+    <div class="image-viewer-header">
+      <span class="image-viewer-info">${currentPage} / ${totalPages}</span>
+      <button class="image-viewer-close" title="关闭">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="image-viewer-content">
+      <img src="${imageSrc}" alt="PDF 页面 ${currentPage}" />
+    </div>
+  `;
 
-  const pagesContainer = document.getElementById('pdfPages');
-  if (!pagesContainer) return;
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
 
-  pagesContainer.innerHTML = '';
-
-  for (let pageNum = 1; pageNum <= pdfPageCount; pageNum++) {
-    const pageDiv = document.createElement('div');
-    pageDiv.className = 'pdf-page';
-    pageDiv.id = `pdf-page-${pageNum}`;
-    
-    const canvas = document.createElement('canvas');
-    canvas.className = 'pdf-canvas';
-    
-    pageDiv.appendChild(canvas);
-    pagesContainer.appendChild(pageDiv);
-
-    // 渲染页面
-    await renderPdfPage(pageNum, canvas);
-  }
-}
-
-// 渲染单个 PDF 页面
-async function renderPdfPage(pageNum, canvas) {
-  if (!pdfDoc || !canvas) return;
-
-  try {
-    const page = await pdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: pdfScale });
-    
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-
-    const context = canvas.getContext('2d');
-    const renderContext = {
-      canvasContext: context,
-      viewport: viewport
-    };
-
-    const renderTask = page.render(renderContext);
-    await renderTask.promise;
-  } catch (error) {
-    console.error(`渲染 PDF 页面 ${pageNum} 失败:`, error);
-  }
-}
-
-// 设置 PDF 控制按钮
-function setupPdfControls() {
-  const prevBtn = document.getElementById('pdfPrev');
-  const nextBtn = document.getElementById('pdfNext');
-  const zoomInBtn = document.getElementById('pdfZoomIn');
-  const zoomOutBtn = document.getElementById('pdfZoomOut');
-  const fitWidthBtn = document.getElementById('pdfFitWidth');
-
-  if (prevBtn) {
-    prevBtn.addEventListener('click', () => {
-      scrollToPdfPage(Math.max(1, pdfPageNum - 1));
-    });
-  }
-
-  if (nextBtn) {
-    nextBtn.addEventListener('click', () => {
-      scrollToPdfPage(Math.min(pdfPageCount, pdfPageNum + 1));
-    });
-  }
-
-  if (zoomInBtn) {
-    zoomInBtn.addEventListener('click', async () => {
-      pdfScale = Math.min(pdfScale + 0.25, 3.0);
-      updateZoomLevel();
-      await renderAllPages();
-    });
-  }
-
-  if (zoomOutBtn) {
-    zoomOutBtn.addEventListener('click', async () => {
-      pdfScale = Math.max(pdfScale - 0.25, 0.5);
-      updateZoomLevel();
-      await renderAllPages();
-    });
-  }
-
-  if (fitWidthBtn) {
-    fitWidthBtn.addEventListener('click', async () => {
-      const pagesContainer = document.getElementById('pdfPages');
-      if (pagesContainer && pdfDoc) {
-        const firstPage = await pdfDoc.getPage(1);
-        const viewport = firstPage.getViewport({ scale: 1.0 });
-        const containerWidth = pagesContainer.clientWidth - 80;
-        pdfScale = containerWidth / viewport.width;
-        updateZoomLevel();
-        await renderAllPages();
-      }
-    });
-  }
-
-  // 监听滚动，更新当前页码
-  const pagesContainer = document.getElementById('pdfPages');
-  if (pagesContainer) {
-    pagesContainer.addEventListener('scroll', () => {
-      updateCurrentPage();
-    });
-  }
-
-  // 键盘快捷键
-  const keydownHandler = (e) => {
-    if (pdfDoc && document.getElementById('pdfPages')) {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        scrollToPdfPage(Math.max(1, pdfPageNum - 1));
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        scrollToPdfPage(Math.min(pdfPageCount, pdfPageNum + 1));
-      }
-    }
+  // 关闭事件
+  const closeViewer = () => {
+    overlay.remove();
+    document.body.style.overflow = '';
   };
 
-  document.addEventListener('keydown', keydownHandler);
-}
-
-// 滚动到指定页面
-function scrollToPdfPage(pageNum) {
-  const pageDiv = document.getElementById(`pdf-page-${pageNum}`);
-  if (pageDiv) {
-    pageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    pdfPageNum = pageNum;
-    updatePageNumber();
-  }
-}
-
-// 更新当前页码（基于滚动位置）
-function updateCurrentPage() {
-  const pagesContainer = document.getElementById('pdfPages');
-  if (!pagesContainer) return;
-
-  for (let i = 1; i <= pdfPageCount; i++) {
-    const pageDiv = document.getElementById(`pdf-page-${i}`);
-    if (pageDiv) {
-      const rect = pageDiv.getBoundingClientRect();
-      const containerRect = pagesContainer.getBoundingClientRect();
-      
-      if (rect.top >= containerRect.top && rect.top < containerRect.bottom) {
-        if (pdfPageNum !== i) {
-          pdfPageNum = i;
-          updatePageNumber();
-        }
-        break;
-      }
+  overlay.querySelector('.image-viewer-close').addEventListener('click', closeViewer);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay || e.target.classList.contains('image-viewer-content')) {
+      closeViewer();
     }
-  }
-}
+  });
 
-// 更新页码显示
-function updatePageNumber() {
-  const pageNumEl = document.getElementById('pdfPageNum');
-  if (pageNumEl) {
-    pageNumEl.textContent = pdfPageNum;
-  }
-}
-
-// 更新缩放级别显示
-function updateZoomLevel() {
-  const zoomLevelEl = document.getElementById('pdfZoomLevel');
-  if (zoomLevelEl) {
-    zoomLevelEl.textContent = Math.round(pdfScale * 100);
-  }
+  // ESC 键关闭
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeViewer();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
 }
 
 // 处理浏览器前进后退

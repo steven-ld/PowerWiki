@@ -92,7 +92,7 @@ const gitManager = new GitManager(config.gitRepo, config.repoBranch, './.git-rep
 app.use(express.json());
 app.use(express.static('public'));
 
-// 提供 PDF.js 静态文件（从 node_modules）
+// 提供 PDF.js 静态文件
 app.use('/pdfjs', express.static(path.join(__dirname, 'node_modules', 'pdfjs-dist')));
 
 /**
@@ -169,6 +169,7 @@ function startAutoSync() {
 /**
  * 构建目录树结构
  * 将扁平的文件列表转换为树形结构，并按更新时间排序
+ * README.md 文件会被提取为目录的 readme 属性，不显示在文件列表中
  * @param {Array} files - 文件列表
  * @returns {Object} 目录树对象
  */
@@ -187,17 +188,31 @@ function buildDirectoryTree(files) {
       if (isFile) {
         // 这是文件
         const fileName = part.replace(/\.(md|markdown|pdf)$/i, ''); // 去掉扩展名
-        if (!current.files) {
-          current.files = [];
-        }
-        current.files.push({
+        const isReadme = /^readme$/i.test(fileName);
+        const isAbout = /^about$/i.test(fileName);
+        
+        const fileData = {
           name: fileName,
           path: file.path,
           fullName: file.name,
           modified: file.modified,
           size: file.size,
           type: file.type || (file.name.endsWith('.pdf') ? 'pdf' : 'markdown')
-        });
+        };
+        
+        if (isReadme && fileData.type === 'markdown') {
+          // README 文件作为目录的描述，不放入 files 列表
+          current.readme = fileData;
+        } else if (isAbout && fileData.type === 'markdown') {
+          // ABOUT 文件也隐藏，不放入 files 列表
+          current.about = fileData;
+        } else {
+          // 普通文件放入 files 列表
+          if (!current.files) {
+            current.files = [];
+          }
+          current.files.push(fileData);
+        }
       } else {
         // 这是目录
         if (!current.dirs) {

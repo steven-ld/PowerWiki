@@ -1,7 +1,7 @@
 {
   "name": "powerwiki",
   "version": "1.0.0",
-  "description": "一个现代化的基于 Git 仓库的 Markdown 知识库系统，支持自动同步、代码高亮、目录导航等功能",
+  "description": "A modern Git-based Markdown wiki system with auto-sync, syntax highlighting, and Feishu-style UI",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,26 +12,23 @@
     "markdown",
     "git",
     "documentation",
-    "static-site",
-    "wiki-generator",
-    "markdown-wiki",
-    "git-wiki",
     "knowledge-base",
-    "documentation-site"
+    "feishu",
+    "static-site",
+    "express"
   ],
   "author": "",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/powerwiki.git"
+    "url": "git+https://github.com/your-username/PowerWiki.git"
   },
   "bugs": {
-    "url": "https://github.com/your-username/powerwiki/issues"
+    "url": "https://github.com/your-username/PowerWiki/issues"
   },
-  "homepage": "https://github.com/your-username/powerwiki#readme",
+  "homepage": "https://github.com/your-username/PowerWiki#readme",
   "engines": {
-    "node": ">=14.0.0",
-    "npm": ">=6.0.0"
+    "node": ">=14.0.0"
   },
   "dependencies": {
     "express": "^4.18.2",

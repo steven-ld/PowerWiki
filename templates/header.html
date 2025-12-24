@@ -3,12 +3,25 @@
     <div class="header-content">
         <div class="header-left">
             <h1 class="site-title">{{siteTitle}}</h1>
+            <span class="header-divider"></span>
             <p class="site-description">{{siteDescription}}</p>
         </div>
         <nav class="header-nav">
-            <a href="/" class="nav-link">首页</a>
-            <a href="{{aboutPath}}" class="nav-link">关于</a>
-            <a href="#" class="nav-link">联系</a>
+            <a href="/" class="nav-link">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M2 8.5l6-5.5 6 5.5M3 8v5.5a1 1 0 0 0 1 1h3v-4h2v4h3a1 1 0 0 0 1-1V8" stroke="currentColor"
+                        stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                首页
+            </a>
+            <a href="{{aboutPath}}" class="nav-link">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.2" />
+                    <path d="M2 14c0-3 2.5-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.2"
+                        stroke-linecap="round" />
+                </svg>
+                关于
+            </a>
         </nav>
     </div>
 </header>

@@ -5,12 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PowerWiki - 知识库</title>
     <link rel="stylesheet" href="/styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
 </head>
 <body>
     <div class="app-container">
         <!-- 移动端菜单按钮 -->
-        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        <button class="mobile-menu-btn" id="mobileMenuBtn">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+        </button>
         
         <!-- 侧边栏遮罩 -->
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -21,18 +25,30 @@
         <!-- 左侧导航栏 -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h1 class="logo" id="siteLogo">📚 PowerWiki</h1>
-                <p class="subtitle" id="siteSubtitle">知识库</p>
+                <div class="logo-wrapper">
+                    <svg class="logo-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M7 8h10M7 12h7M7 16h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <h1 class="logo" id="siteLogo">PowerWiki</h1>
+                </div>
             </div>
             
             <div class="search-box">
-                <input type="text" id="searchInput" placeholder="搜索..." />
-                <span class="search-icon">🔍</span>
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <input type="text" id="searchInput" placeholder="搜索文档..." />
             </div>
             
             <nav class="nav-menu" id="navMenu">
                 <ul class="nav-list" id="postList">
-                    <li class="nav-item loading">加载中...</li>
+                    <li class="nav-item loading">
+                        <div class="loading-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </li>
                 </ul>
             </nav>
         </aside>
@@ -46,13 +62,26 @@
             <div id="postView" class="view">
                 <article class="post-content">
                     <header class="post-header">
-                        <div class="post-header-top">
-                            <h1 id="postTitle"></h1>
-                            <span class="post-view-count" id="postViewCount"></span>
-                        </div>
+                        <h1 id="postTitle"></h1>
                         <div class="post-meta">
-                            <span id="postDate"></span>
-                            <span id="postSize"></span>
+                            <span class="meta-item" id="postDate">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <rect x="1" y="2" width="12" height="11" rx="2" stroke="currentColor" stroke-width="1.2"/>
+                                    <path d="M1 5h12M4 1v2M10 1v2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                                </svg>
+                            </span>
+                            <span class="meta-item" id="postSize">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h7A1.5 1.5 0 0 1 12 3.5v7a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 2 10.5v-7z" stroke="currentColor" stroke-width="1.2"/>
+                                    <path d="M5 5h4M5 7h4M5 9h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                                </svg>
+                            </span>
+                            <span class="meta-item post-view-count" id="postViewCount">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <ellipse cx="7" cy="7" rx="6" ry="4" stroke="currentColor" stroke-width="1.2"/>
+                                    <circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/>
+                                </svg>
+                            </span>
                         </div>
                     </header>
                     <div id="postBody" class="markdown-body"></div>
@@ -63,10 +92,13 @@
         <!-- 右侧目录栏 -->
         <aside class="toc-sidebar" id="tocSidebar">
             <div class="toc-header">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M2 3h12M2 6.5h8M2 10h10M2 13.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
                 <span>目录</span>
                 <button class="toc-toggle-btn" id="tocToggleBtn" title="收起目录">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M5.5 3L10.5 8L5.5 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
             </div>
@@ -75,8 +107,8 @@
         
         <!-- 展开目录按钮（收起时显示） -->
         <button class="toc-expand-btn" id="tocExpandBtn" title="展开目录">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M10.5 3L5.5 8L10.5 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M2 3h12M2 6.5h8M2 10h10M2 13.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
         </button>
         
@@ -87,4 +119,3 @@
     <script src="/app.js"></script>
 </body>
 </html>
-

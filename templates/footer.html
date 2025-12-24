@@ -1,31 +1,32 @@
-<!-- 网站底部模板（优化排版版） -->
+<!-- 网站底部模板 -->
 <footer class="site-footer">
     <div class="footer-content">
-        <!-- 左侧：版权信息 -->
         <div class="footer-left">
-            <p class="copyright">
-                &copy; {{currentYear}} {{siteTitle}}. All rights reserved.
-                <span class="separator">|</span>
-                <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">
-                    黑ICP备2021002511号-1
-                </a>
-            </p>
+            <span class="copyright">&copy; {{currentYear}} {{siteTitle}}</span>
+            <span class="footer-divider">·</span>
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">黑ICP备2021002511号-1</a>
         </div>
-
-        <!-- 右侧：统计信息 + Powered by -->
         <div class="footer-right">
             <div class="footer-stats">
                 <span class="stat-item">
-                    👁️ 总访问量: <strong id="totalViews">{{totalViews}}</strong>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <ellipse cx="7" cy="7" rx="6" ry="4" stroke="currentColor" stroke-width="1.2"/>
+                        <circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/>
+                    </svg>
+                    <span id="totalViews">{{totalViews}}</span>
                 </span>
                 <span class="stat-item">
-                    📚 文章数: <strong id="totalPosts">{{totalPosts}}</strong>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h7A1.5 1.5 0 0 1 12 3.5v7a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 2 10.5v-7z" stroke="currentColor" stroke-width="1.2"/>
+                        <path d="M5 5h4M5 7h4M5 9h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                    </svg>
+                    <span id="totalPosts">{{totalPosts}}</span> 篇
                 </span>
             </div>
-            <p class="powered-by">
-                Powered by
-                <a href="https://github.com" target="_blank" rel="noopener">PowerWiki</a>
-            </p>
+            <span class="footer-divider">·</span>
+            <span class="powered-by">
+                Powered by <a href="https://github.com" target="_blank" rel="noopener">PowerWiki</a>
+            </span>
         </div>
     </div>
 </footer>
