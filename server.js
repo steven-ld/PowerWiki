@@ -134,8 +134,12 @@ function renderTemplate(template, data) {
 async function initRepo() {
   try {
     console.log('📦 正在同步 Git 仓库...');
-    await gitManager.cloneOrUpdate();
-    console.log('✅ 仓库同步完成！');
+    const result = await gitManager.cloneOrUpdate();
+    if (result.updated) {
+      console.log('✅ 仓库已更新！');
+    } else {
+      console.log('✅ 仓库已是最新版本');
+    }
   } catch (error) {
     console.error('❌ 初始化仓库失败:', error.message);
     console.error('💡 提示: 请检查 Git 仓库地址和网络连接');
@@ -150,9 +154,11 @@ function startAutoSync() {
   const interval = config.autoSyncInterval || 180000; // 默认3分钟
   setInterval(async () => {
     try {
-      console.log('⏰ 自动同步 Git 仓库...');
-      await gitManager.cloneOrUpdate();
-      console.log('✅ 自动同步完成！');
+      const result = await gitManager.cloneOrUpdate();
+      if (result.updated) {
+        console.log('⏰ [' + new Date().toLocaleString() + '] 仓库有更新，已自动同步');
+      }
+      // 没有更新时不打印日志
     } catch (error) {
       console.error('❌ 自动同步失败:', error.message);
     }

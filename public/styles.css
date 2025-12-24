@@ -490,6 +490,11 @@ body {
   border-left: 1px solid var(--sidebar-border);
   z-index: 99;
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease;
+}
+
+.toc-sidebar.collapsed {
+  transform: translateX(280px);
 }
 
 .toc-header {
@@ -500,6 +505,69 @@ body {
   border-bottom: 1px solid var(--sidebar-border);
   background-color: #fff;
   flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+.toc-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.toc-toggle-btn:hover {
+  background: var(--sidebar-hover);
+  color: var(--accent-color);
+}
+
+.toc-toggle-btn svg,
+.toc-expand-btn svg {
+  transition: transform 0.3s ease;
+}
+
+.toc-sidebar.collapsed .toc-toggle-btn svg {
+  transform: rotate(180deg);
+}
+
+/* 收起时显示的展开按钮 */
+.toc-expand-btn {
+  display: none;
+  position: fixed;
+  right: 0;
+  top: 120px;
+  width: 32px;
+  height: 48px;
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  box-shadow: -2px 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  z-index: 98;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+
+.toc-expand-btn:hover {
+  background: var(--sidebar-hover);
+  color: var(--accent-color);
+}
+
+.toc-expand-btn.show {
+  display: flex;
 }
 
 .toc-nav {
@@ -936,7 +1004,11 @@ body {
 /* 响应式设计 */
 @media (max-width: 1200px) {
   .toc-sidebar {
-    display: none;
+    display: none !important;
+  }
+  
+  .toc-expand-btn {
+    display: none !important;
   }
   
   .main-content {
@@ -1129,7 +1201,11 @@ body {
 
   /* 目录栏隐藏 */
   .toc-sidebar {
-    display: none;
+    display: none !important;
+  }
+  
+  .toc-expand-btn {
+    display: none !important;
   }
 
   /* 底部调整 */
@@ -1207,129 +1283,126 @@ body {
   background: #bfbfbf;
 }
 
-/* PDF 查看器样式 */
-.pdf-viewer-wrapper {
+/* PDF 文档样式 - 更自然优雅 */
+.pdf-document {
   width: 100%;
-  background: #fff;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  overflow: hidden;
   margin: 20px 0;
 }
 
-.pdf-toolbar {
+.pdf-controls {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: #fafafa;
-  border-bottom: 1px solid var(--border-color);
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.pdf-toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.pdf-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.pdf-btn {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
-  height: 32px;
-  padding: 0 8px;
+  padding: 12px;
+  background: #fff;
+  border-bottom: 1px solid var(--border-color);
+  gap: 8px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.pdf-control-btn {
+  padding: 6px 16px;
   background: #fff;
   border: 1px solid var(--border-color);
   border-radius: 4px;
   color: var(--main-text);
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
-  user-select: none;
+  white-space: nowrap;
 }
 
-.pdf-btn:hover:not(.disabled) {
+.pdf-control-btn:hover {
   background: var(--sidebar-hover);
   border-color: var(--accent-color);
   color: var(--accent-color);
 }
 
-.pdf-btn.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pdf-page-info {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 12px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.pdf-zoom-info {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 12px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.pdf-download-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+.pdf-control-btn.pdf-download {
   background: var(--accent-color);
   color: white;
+  border-color: var(--accent-color);
   text-decoration: none;
-  border-radius: 4px;
-  font-size: 13px;
-  transition: background 0.2s;
 }
 
-.pdf-download-link:hover {
+.pdf-control-btn.pdf-download:hover {
   background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: white;
 }
 
-.pdf-canvas-container {
+.pdf-page-display,
+.pdf-zoom-display {
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.pdf-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+.pdf-viewer {
   width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   background: #f5f5f5;
-  padding: 20px;
-  min-height: 600px;
-  overflow: auto;
+  position: relative;
 }
 
-#pdfCanvas {
+.pdf-pages {
+  width: 100%;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.pdf-page {
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pdf-canvas {
+  display: block;
   max-width: 100%;
   height: auto;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  background: #fff;
 }
 
 .pdf-loading {
   display: none;
-  text-align: center;
-  padding: 40px 20px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
   color: var(--text-muted);
   font-size: 14px;
+  gap: 12px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* 文件图标样式 */
@@ -1339,30 +1412,31 @@ body {
   font-size: 14px;
 }
 
-/* 移动端 PDF 查看器优化 */
+/* 移动端 PDF 优化 */
 @media (max-width: 768px) {
-  .pdf-toolbar {
-    flex-direction: column;
-    align-items: stretch;
+  .pdf-controls {
+    padding: 8px;
+    gap: 4px;
   }
 
-  .pdf-toolbar-left {
-    justify-content: center;
-    width: 100%;
+  .pdf-control-btn {
+    padding: 4px 12px;
+    font-size: 12px;
   }
 
-  .pdf-toolbar-right {
-    justify-content: center;
-    width: 100%;
+  .pdf-page-display,
+  .pdf-zoom-display {
+    padding: 0 8px;
+    font-size: 12px;
   }
 
-  .pdf-canvas-container {
-    padding: 10px;
-    min-height: 400px;
+  .pdf-pages {
+    padding: 20px 10px;
+    max-height: calc(100vh - 180px);
+    gap: 15px;
   }
 
-  .pdf-download-link {
-    width: 100%;
-    justify-content: center;
+  .pdf-divider {
+    display: none;
   }
 }

@@ -62,9 +62,23 @@
 
         <!-- 右侧目录栏 -->
         <aside class="toc-sidebar" id="tocSidebar">
-            <div class="toc-header">目录</div>
+            <div class="toc-header">
+                <span>目录</span>
+                <button class="toc-toggle-btn" id="tocToggleBtn" title="收起目录">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M5.5 3L10.5 8L5.5 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    </svg>
+                </button>
+            </div>
             <nav class="toc-nav" id="tocNav"></nav>
         </aside>
+        
+        <!-- 展开目录按钮（收起时显示） -->
+        <button class="toc-expand-btn" id="tocExpandBtn" title="展开目录">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M10.5 3L5.5 8L10.5 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+        </button>
         
         <!-- 网站底部 -->
         <div id="siteFooter"></div>

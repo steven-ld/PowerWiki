@@ -35,15 +35,27 @@ class GitManager {
       if (await fs.pathExists(this.repoPath)) {
         // 如果已存在，执行 pull 更新
         const git = simpleGit(this.repoPath);
+        
+        // 获取更新前的最新提交
+        const beforePull = await git.revparse(['HEAD']);
+        
+        // 执行 pull
         await git.pull('origin', this.branch);
-        console.log(`已更新仓库: ${this.repoName}`);
+        
+        // 获取更新后的最新提交
+        const afterPull = await git.revparse(['HEAD']);
+        
+        // 检查是否有更新
+        const updated = beforePull !== afterPull;
+        
+        return { updated, isNew: false };
       } else {
         // 如果不存在，执行 clone
         const git = simpleGit(this.localPath);
         await git.clone(this.repoUrl, this.repoName, ['--branch', this.branch]);
         console.log(`已克隆仓库: ${this.repoName}`);
+        return { updated: true, isNew: true };
       }
-      return true;
     } catch (error) {
       console.error('Git 操作失败:', error);
       throw error;
