@@ -204,15 +204,24 @@ function goToHome() {
     currentPost = null;
     window.history.pushState({}, '', '/');
 
-    // 隐藏目录栏
-    const tocSidebar = document.getElementById('tocSidebar');
-    if (tocSidebar) {
-      tocSidebar.style.display = 'none';
+    // 检查首页是否有 README 内容，有则显示目录
+    const homeContent = document.getElementById('homeContent');
+    if (homeContent && homeContent.innerHTML.trim() !== '') {
+      generateHomeTOC();
+    } else {
+      // 没有内容则隐藏目录栏
+      const tocSidebar = document.getElementById('tocSidebar');
+      if (tocSidebar) {
+        tocSidebar.style.display = 'none';
+      }
     }
 
     // 清除导航栏选中状态
     if (postList) {
       postList.querySelectorAll('.nav-item-file').forEach(item => {
+        item.classList.remove('active');
+      });
+      postList.querySelectorAll('.nav-dir').forEach(item => {
         item.classList.remove('active');
       });
     }
@@ -694,16 +703,101 @@ document.head.appendChild(style);
 // 生成首页目录（如果首页有 README 内容）
 function generateHomeTOC() {
   const homeContent = document.getElementById('homeContent');
+  const tocNav = document.getElementById('tocNav');
+  const tocSidebar = document.getElementById('tocSidebar');
+  
+  if (!homeContent || !tocNav || !tocSidebar) return;
+  
+  const headings = homeContent.querySelectorAll('h1, h2, h3, h4, h5, h6');
+  
+  if (headings.length === 0) {
+    tocSidebar.style.display = 'none';
+    return;
+  }
+
+  // 显示目录栏
+  tocSidebar.style.display = 'flex';
+
+  let tocHTML = '<ul>';
+  let tocItems = [];
+
+  // 为标题添加 ID 并收集目录项
+  headings.forEach((heading, index) => {
+    const id = `home-heading-${index}`;
+    const text = heading.textContent.trim();
+    const level = parseInt(heading.tagName.substring(1));
+    
+    heading.id = id;
+    tocItems.push({ id, text, level });
+  });
+
+  // 渲染目录
+  tocItems.forEach(item => {
+    const className = `toc-h${item.level}`;
+    tocHTML += `<li class="${className}"><a href="#${item.id}" data-id="${item.id}">${escapeHtml(item.text)}</a></li>`;
+  });
+
+  tocHTML += '</ul>';
+  tocNav.innerHTML = tocHTML;
+
+  // 添加目录点击事件
+  tocNav.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = link.getAttribute('href').substring(1);
+      const targetElement = document.getElementById(targetId);
+      if (targetElement) {
+        const elementPosition = targetElement.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - 20;
+
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+
+        window.history.pushState({}, '', `#${targetId}`);
+        updateTOCActive(targetId);
+      }
+    });
+  });
+
+  // 设置滚动监听
+  setupHomeTOCScroll();
+}
+
+// 设置首页目录滚动高亮
+function setupHomeTOCScroll() {
+  const homeContent = document.getElementById('homeContent');
   if (!homeContent) return;
   
   const headings = homeContent.querySelectorAll('h1, h2, h3, h4, h5, h6');
   if (headings.length === 0) return;
 
-  // 为标题添加 ID
-  headings.forEach((heading, index) => {
-    const id = `home-heading-${index}`;
-    heading.id = id;
-  });
+  let ticking = false;
+  
+  const handleScroll = () => {
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        let currentHeading = null;
+        
+        headings.forEach(heading => {
+          const rect = heading.getBoundingClientRect();
+          if (rect.top <= 100) {
+            currentHeading = heading;
+          }
+        });
+
+        if (currentHeading) {
+          updateTOCActive(currentHeading.id);
+        }
+        
+        ticking = false;
+      });
+      ticking = true;
+    }
+  };
+
+  window.addEventListener('scroll', handleScroll, { passive: true });
 }
 
 // 生成文章目录
@@ -968,10 +1062,15 @@ window.addEventListener('popstate', (e) => {
     homeView.classList.add('active');
     postView.classList.remove('active');
     currentPost = null;
-    // 隐藏目录栏
-    const tocSidebar = document.getElementById('tocSidebar');
-    if (tocSidebar) {
-      tocSidebar.style.display = 'none';
+    // 检查首页是否有 README 内容，有则显示目录
+    const homeContent = document.getElementById('homeContent');
+    if (homeContent && homeContent.innerHTML.trim() !== '') {
+      generateHomeTOC();
+    } else {
+      const tocSidebar = document.getElementById('tocSidebar');
+      if (tocSidebar) {
+        tocSidebar.style.display = 'none';
+      }
     }
   }
 });
