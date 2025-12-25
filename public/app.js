@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadPosts(); // 等待文章列表加载完成
   setupEventListeners();
   setupRouting(); // 然后设置路由
+  setupBackToTop(); // 设置返回顶部按钮
 });
 
 // 加载网站配置和模板
@@ -67,6 +68,10 @@ async function loadConfig() {
             if (homeWelcome) {
               homeWelcome.style.display = 'none';
             }
+
+            // 为代码块和图片添加功能
+            addCopyButtonsToCodeBlocks(homeContent);
+            addImageZoomFeature(homeContent);
 
             // 为标题添加 ID 并生成目录（如果有标题）
             generateHomeTOC();
@@ -553,6 +558,12 @@ async function loadPost(filePath) {
     } else {
       // Markdown 文件：正常渲染
       postBody.innerHTML = post.html;
+
+      // 为代码块添加复制按钮
+      addCopyButtonsToCodeBlocks();
+
+      // 为图片添加点击放大功能
+      addImageZoomFeature();
 
       // 为标题添加 ID 并生成目录
       generateTOC();
@@ -1066,6 +1077,9 @@ window.addEventListener('popstate', (e) => {
     const homeContent = document.getElementById('homeContent');
     if (homeContent && homeContent.innerHTML.trim() !== '') {
       generateHomeTOC();
+      // 为首页的代码块和图片也添加功能
+      addCopyButtonsToCodeBlocks(homeContent);
+      addImageZoomFeature(homeContent);
     } else {
       const tocSidebar = document.getElementById('tocSidebar');
       if (tocSidebar) {
@@ -1074,4 +1088,182 @@ window.addEventListener('popstate', (e) => {
     }
   }
 });
+
+// 为代码块添加复制按钮
+function addCopyButtonsToCodeBlocks(container = null) {
+  const targetContainer = container || postBody;
+  if (!targetContainer) return;
+
+  const codeBlocks = targetContainer.querySelectorAll('pre code');
+  codeBlocks.forEach((codeBlock) => {
+    const pre = codeBlock.parentElement;
+    // 避免重复添加
+    if (pre.querySelector('.code-copy-btn')) return;
+
+    // 创建复制按钮
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'code-copy-btn';
+    copyBtn.title = '复制代码';
+    copyBtn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M3 11V3a2 2 0 0 1 2-2h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <span class="copy-text">复制</span>
+    `;
+
+    // 设置 pre 为相对定位
+    pre.style.position = 'relative';
+
+    // 添加点击事件
+    copyBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const code = codeBlock.textContent || codeBlock.innerText;
+
+      try {
+        await navigator.clipboard.writeText(code);
+        copyBtn.classList.add('copied');
+        const copyText = copyBtn.querySelector('.copy-text');
+        if (copyText) {
+          copyText.textContent = '已复制';
+        }
+        setTimeout(() => {
+          copyBtn.classList.remove('copied');
+          if (copyText) {
+            copyText.textContent = '复制';
+          }
+        }, 2000);
+      } catch (err) {
+        // 降级方案：使用传统方法
+        const textarea = document.createElement('textarea');
+        textarea.value = code;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          copyBtn.classList.add('copied');
+          const copyText = copyBtn.querySelector('.copy-text');
+          if (copyText) {
+            copyText.textContent = '已复制';
+          }
+          setTimeout(() => {
+            copyBtn.classList.remove('copied');
+            if (copyText) {
+              copyText.textContent = '复制';
+            }
+          }, 2000);
+        } catch (err2) {
+          showNotification('复制失败', 'error');
+        }
+        document.body.removeChild(textarea);
+      }
+    });
+
+    pre.appendChild(copyBtn);
+  });
+}
+
+// 为图片添加点击放大功能
+function addImageZoomFeature(container = null) {
+  const targetContainer = container || postBody;
+  if (!targetContainer) return;
+
+  const images = targetContainer.querySelectorAll('img:not(.pdf-page-img)');
+  images.forEach((img) => {
+    // 避免重复添加事件
+    if (img.dataset.zoomEnabled === 'true') return;
+    img.dataset.zoomEnabled = 'true';
+
+    // 添加可点击样式
+    img.style.cursor = 'zoom-in';
+
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openImageModal(img.src, img.alt || '图片');
+    });
+  });
+}
+
+// 打开图片模态框
+function openImageModal(imageSrc, imageAlt) {
+  // 创建遮罩层
+  const overlay = document.createElement('div');
+  overlay.className = 'image-modal-overlay';
+  overlay.innerHTML = `
+    <div class="image-modal-header">
+      <span class="image-modal-title">${escapeHtml(imageAlt)}</span>
+      <button class="image-modal-close" title="关闭">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="image-modal-content">
+      <img src="${imageSrc}" alt="${escapeHtml(imageAlt)}" />
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+
+  // 关闭事件
+  const closeModal = () => {
+    overlay.remove();
+    document.body.style.overflow = '';
+  };
+
+  overlay.querySelector('.image-modal-close').addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay || e.target.classList.contains('image-modal-content')) {
+      closeModal();
+    }
+  });
+
+  // ESC 键关闭
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeModal();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+}
+
+// 设置返回顶部按钮
+function setupBackToTop() {
+  const backToTopBtn = document.getElementById('backToTopBtn');
+  if (!backToTopBtn) return;
+
+  // 初始隐藏按钮
+  backToTopBtn.style.display = 'none';
+
+  // 滚动监听
+  let ticking = false;
+  const handleScroll = () => {
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        if (scrollTop > 300) {
+          backToTopBtn.style.display = 'flex';
+        } else {
+          backToTopBtn.style.display = 'none';
+        }
+        ticking = false;
+      });
+      ticking = true;
+    }
+  };
+
+  window.addEventListener('scroll', handleScroll, { passive: true });
+
+  // 点击返回顶部
+  backToTopBtn.addEventListener('click', () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  });
+}
 
