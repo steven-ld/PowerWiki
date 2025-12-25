@@ -44,26 +44,26 @@ function encrypt(text, password = null) {
   try {
     // 如果没有提供密码，尝试从环境变量获取，否则使用默认密钥
     const encryptionKey = password || process.env.ENCRYPTION_KEY || 'powerwiki-default-key-change-in-production';
-    
+
     // 生成随机盐值
     const salt = crypto.randomBytes(SALT_LENGTH);
-    
+
     // 派生密钥
     const key = deriveKey(encryptionKey, salt);
-    
+
     // 生成随机 IV
     const iv = crypto.randomBytes(IV_LENGTH);
-    
+
     // 创建加密器
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-    
+
     // 加密数据
     let encrypted = cipher.update(text, 'utf8', 'base64');
     encrypted += cipher.final('base64');
-    
+
     // 获取认证标签
     const tag = cipher.getAuthTag();
-    
+
     // 组合：salt + iv + tag + encrypted
     const combined = Buffer.concat([
       salt,
@@ -71,7 +71,7 @@ function encrypt(text, password = null) {
       tag,
       Buffer.from(encrypted, 'base64')
     ]);
-    
+
     return combined.toString('base64');
   } catch (error) {
     console.error('加密失败:', error);
@@ -89,27 +89,27 @@ function decrypt(encryptedData, password = null) {
   try {
     // 如果没有提供密码，尝试从环境变量获取，否则使用默认密钥
     const encryptionKey = password || process.env.ENCRYPTION_KEY || 'powerwiki-default-key-change-in-production';
-    
+
     // 解码 Base64
     const combined = Buffer.from(encryptedData, 'base64');
-    
+
     // 提取各部分
     const salt = combined.slice(0, SALT_LENGTH);
     const iv = combined.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
     const tag = combined.slice(SALT_LENGTH + IV_LENGTH, SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
     const encrypted = combined.slice(SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
-    
+
     // 派生密钥
     const key = deriveKey(encryptionKey, salt);
-    
+
     // 创建解密器
     const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
     decipher.setAuthTag(tag);
-    
+
     // 解密数据
     let decrypted = decipher.update(encrypted, null, 'utf8');
     decrypted += decipher.final('utf8');
-    
+
     return decrypted;
   } catch (error) {
     console.error('解密失败:', error);

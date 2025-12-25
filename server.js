@@ -215,7 +215,7 @@ function startAutoSync() {
     }
     
     try {
-      // 设置进度回调
+      // 设置进度回调（只在有更新时显示）
       gitManager.setProgressCallback(showProgress);
       
       const result = await gitManager.cloneOrUpdate();
@@ -226,7 +226,7 @@ function startAutoSync() {
         cacheManager.delete('config');
         console.log('🗑️  已清除相关缓存');
       }
-      // 没有更新时不打印日志
+      // 没有更新时完全静默，不打印任何日志
     } catch (error) {
       // 如果是操作进行中的错误，不打印错误日志
       if (error.message && error.message.includes('正在进行中')) {

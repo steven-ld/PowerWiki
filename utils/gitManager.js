@@ -110,10 +110,7 @@ class GitManager {
         }
         
         if (isComplete) {
-          // 如果已存在且完整，执行 pull 更新
-          this.showProgress('🔄 正在拉取更新...');
-          
-          // 获取更新前的最新提交
+          // 如果已存在且完整，先检查是否有更新
           let beforePull = null;
           try {
             beforePull = await git.revparse(['HEAD']);
@@ -122,22 +119,33 @@ class GitManager {
             console.warn('⚠️  无法获取当前提交，继续尝试拉取...');
           }
           
-          // 执行 pull
-          await git.pull('origin', this.branch);
-          
-          // 获取更新后的最新提交
-          let afterPull = null;
+          // 先 fetch 检查是否有更新
+          let hasUpdates = false;
           try {
-            afterPull = await git.revparse(['HEAD']);
+            await git.fetch('origin', this.branch);
+            // 检查本地 HEAD 和远程分支是否有差异
+            try {
+              const remoteCommit = await git.revparse([`origin/${this.branch}`]);
+              hasUpdates = beforePull !== remoteCommit;
+            } catch (error) {
+              // 如果无法比较，假设有更新
+              hasUpdates = true;
+            }
           } catch (error) {
-            console.warn('⚠️  无法获取更新后的提交');
+            // 如果 fetch 失败，尝试直接 pull
+            hasUpdates = true; // 假设有更新，执行 pull
           }
           
-          // 检查是否有更新
-          const updated = beforePull && afterPull ? beforePull !== afterPull : true;
-          
-          this.showProgress('✅ 拉取完成');
-          return { updated, isNew: false };
+          // 只有在有更新时才显示消息和执行 pull
+          if (hasUpdates) {
+            this.showProgress('🔄 正在拉取更新...');
+            await git.pull('origin', this.branch);
+            this.showProgress('✅ 拉取完成');
+            return { updated: true, isNew: false };
+          } else {
+            // 没有更新，静默返回
+            return { updated: false, isNew: false };
+          }
         }
       }
       
