@@ -197,6 +197,11 @@ async function loadConfig() {
     if (cached) {
       const config = cached;
       applyConfig(config);
+      
+      // 如果配置了首页路径但没有首页内容，说明仓库可能还在初始化，稍后重试
+      if (config.pages && config.pages.home && !config.homeContent) {
+        checkAndReloadConfig();
+      }
       return;
     }
 
@@ -207,9 +212,53 @@ async function loadConfig() {
     ClientCache.set('config', '', config);
 
     applyConfig(config);
+    
+    // 如果配置了首页路径但没有首页内容，说明仓库可能还在初始化，稍后重试
+    if (config.pages && config.pages.home && !config.homeContent) {
+      checkAndReloadConfig();
+    }
   } catch (error) {
     console.error('加载配置失败:', error);
   }
+}
+
+// 检查并重新加载配置（用于仓库初始化完成后刷新）
+let configCheckInterval = null;
+function checkAndReloadConfig() {
+  // 如果已经有检查任务在运行，不重复启动
+  if (configCheckInterval) {
+    return;
+  }
+  
+  let checkCount = 0;
+  configCheckInterval = setInterval(async () => {
+    checkCount++;
+    
+    // 最多检查20次（约10秒）
+    if (checkCount > 20) {
+      clearInterval(configCheckInterval);
+      configCheckInterval = null;
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/config');
+      const config = await response.json();
+      
+      // 如果现在有首页内容了，说明仓库初始化完成，重新加载配置
+      if (config.pages && config.pages.home && config.homeContent) {
+        clearInterval(configCheckInterval);
+        configCheckInterval = null;
+        
+        // 清除缓存并重新加载
+        ClientCache.delete('config');
+        ClientCache.set('config', '', config);
+        applyConfig(config);
+      }
+    } catch (error) {
+      // 忽略错误，继续检查
+    }
+  }, 500); // 每500ms检查一次
 }
 
 // 更新 SEO Meta 标签
@@ -905,8 +954,8 @@ function renderPost(post) {
     setupTOCScroll();
   }
 
-  // 格式化日期
-  const date = new Date(post.fileInfo.modified);
+  // 格式化日期（使用创建时间，如果没有则使用修改时间）
+  const date = new Date(post.fileInfo.created || post.fileInfo.modified);
   const dateText = date.toLocaleDateString('zh-CN', {
     year: 'numeric',
     month: 'long',

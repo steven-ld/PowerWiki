@@ -89,6 +89,10 @@ try {
 // 初始化 GitManager
 const gitManager = new GitManager(config.gitRepo, config.repoBranch, './.git-repos');
 
+// 仓库初始化状态
+let repoInitialized = false;
+let repoInitializing = false;
+
 // 中间件
 app.use(express.json());
 app.use(express.static('public'));
@@ -133,6 +137,11 @@ function renderTemplate(template, data) {
  * @returns {Promise<void>}
  */
 async function initRepo() {
+  if (repoInitializing) {
+    return; // 已经在初始化中，避免重复初始化
+  }
+  
+  repoInitializing = true;
   try {
     console.log('📦 正在同步 Git 仓库...');
     const result = await gitManager.cloneOrUpdate();
@@ -145,9 +154,15 @@ async function initRepo() {
     } else {
       console.log('✅ 仓库已是最新版本');
     }
+    repoInitialized = true;
+    // 清除配置缓存，让前端重新加载
+    cacheManager.delete('config');
   } catch (error) {
     console.error('❌ 初始化仓库失败:', error.message);
     console.error('💡 提示: 请检查 Git 仓库地址和网络连接');
+    repoInitialized = false; // 初始化失败
+  } finally {
+    repoInitializing = false;
   }
 }
 
@@ -204,6 +219,7 @@ function buildDirectoryTree(files) {
           name: fileName,
           path: file.path,
           fullName: file.name,
+          created: file.created,
           modified: file.modified,
           size: file.size,
           type: file.type || (file.name.endsWith('.pdf') ? 'pdf' : 'markdown')
@@ -478,8 +494,9 @@ app.get('/api/config', async (req, res) => {
   const aboutPagePath = config.pages.about || '';
 
   // 尝试读取 README 文件作为首页内容
+  // 只有在仓库已初始化时才尝试读取
   let homeContent = null;
-  if (homePagePath) {
+  if (homePagePath && repoInitialized) {
     try {
       const content = await gitManager.readMarkdownFile(homePagePath);
       const parsed = parseMarkdown(content);
@@ -791,7 +808,7 @@ app.get('/post/*', async (req, res) => {
       "headline": "${title}",
       "description": "${articleDescription}",
       "url": "${articleUrl}",
-      "datePublished": "${new Date(fileInfo.modified).toISOString()}",
+      "datePublished": "${new Date(fileInfo.created || fileInfo.modified).toISOString()}",
       "dateModified": "${new Date(fileInfo.modified).toISOString()}",
       "author": {
         "@type": "Organization",
@@ -818,7 +835,7 @@ app.get('/post/*', async (req, res) => {
                                     <rect x="1" y="2" width="12" height="11" rx="2" stroke="currentColor" stroke-width="1.2"/>
                                     <path d="M1 5h12M4 1v2M10 1v2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
                                 </svg>
-                                <span class="date-text">${new Date(fileInfo.modified).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                <span class="date-text">${new Date(fileInfo.created || fileInfo.modified).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                             </span>
                         </div>
                     </header>

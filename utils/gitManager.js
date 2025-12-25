@@ -81,11 +81,16 @@ class GitManager {
           const relativePath = path.relative(this.repoPath, fullPath);
           const stats = await fs.stat(fullPath);
           
+          // 尝试从 Git 获取创建时间和修改时间
+          const gitCreated = await this.getFileCreatedTime(relativePath);
+          const gitModified = await this.getFileModifiedTime(relativePath);
+          
           files.push({
             path: relativePath,
             fullPath: fullPath,
             name: entry.name,
-            modified: stats.mtime,
+            created: gitCreated || stats.birthtime, // Git 创建时间，如果没有则使用文件系统创建时间
+            modified: gitModified || stats.mtime, // Git 修改时间，如果没有则使用文件系统修改时间
             size: stats.size,
             type: entry.name.endsWith('.pdf') ? 'pdf' : 'markdown'
           });
@@ -94,7 +99,12 @@ class GitManager {
     };
     
     await scanDirectory(searchPath);
-    return files.sort((a, b) => b.modified - a.modified);
+    // 按修改时间排序（最新的在前）
+    return files.sort((a, b) => {
+      const timeA = new Date(a.modified).getTime();
+      const timeB = new Date(b.modified).getTime();
+      return timeB - timeA;
+    });
   }
 
   async readMarkdownFile(filePath) {
@@ -113,14 +123,84 @@ class GitManager {
     throw new Error(`文件不存在: ${filePath}`);
   }
 
+  /**
+   * 获取文件在 Git 中的创建时间（首次提交时间）
+   * @param {string} filePath - 文件相对路径
+   * @returns {Date|null} 创建时间，如果获取失败返回 null
+   */
+  async getFileCreatedTime(filePath) {
+    try {
+      const git = simpleGit(this.repoPath);
+      // 使用 --follow 跟踪文件重命名，--diff-filter=A 只显示添加文件的提交
+      // --format=%ai 输出 ISO 8601 格式的日期时间
+      const log = await git.raw([
+        'log',
+        '--follow',
+        '--diff-filter=A',
+        '--format=%ai',
+        '--',
+        filePath
+      ]);
+      
+      if (log && log.trim()) {
+        // 获取最后一行（最早的提交）
+        const lines = log.trim().split('\n');
+        const firstCommitDate = lines[lines.length - 1].trim();
+        if (firstCommitDate) {
+          return new Date(firstCommitDate);
+        }
+      }
+    } catch (error) {
+      // 如果获取失败（例如文件不在 Git 中），返回 null
+      console.warn(`无法获取文件 ${filePath} 的 Git 创建时间:`, error.message);
+    }
+    return null;
+  }
+
+  /**
+   * 获取文件在 Git 中的最后修改时间（最后提交时间）
+   * @param {string} filePath - 文件相对路径
+   * @returns {Date|null} 修改时间，如果获取失败返回 null
+   */
+  async getFileModifiedTime(filePath) {
+    try {
+      const git = simpleGit(this.repoPath);
+      // 获取文件最后一次提交的时间
+      const log = await git.raw([
+        'log',
+        '-1',
+        '--format=%ai',
+        '--',
+        filePath
+      ]);
+      
+      if (log && log.trim()) {
+        const commitDate = log.trim();
+        if (commitDate) {
+          return new Date(commitDate);
+        }
+      }
+    } catch (error) {
+      // 如果获取失败，返回 null
+      console.warn(`无法获取文件 ${filePath} 的 Git 修改时间:`, error.message);
+    }
+    return null;
+  }
+
   async getFileInfo(filePath) {
     const fullPath = path.join(this.repoPath, filePath);
     if (await fs.pathExists(fullPath)) {
       const stats = await fs.stat(fullPath);
+      
+      // 尝试从 Git 获取创建时间和修改时间
+      const gitCreated = await this.getFileCreatedTime(filePath);
+      const gitModified = await this.getFileModifiedTime(filePath);
+      
       return {
         path: filePath,
         name: path.basename(filePath),
-        modified: stats.mtime,
+        created: gitCreated || stats.birthtime, // Git 创建时间，如果没有则使用文件系统创建时间
+        modified: gitModified || stats.mtime, // Git 修改时间，如果没有则使用文件系统修改时间
         size: stats.size
       };
     }
