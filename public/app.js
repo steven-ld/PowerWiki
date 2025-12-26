@@ -954,9 +954,9 @@ function renderPost(post) {
     setupTOCScroll();
   }
 
-  // 格式化日期（使用创建时间，如果没有则使用修改时间）
-  const date = new Date(post.fileInfo.created || post.fileInfo.modified);
-  const dateText = date.toLocaleDateString('zh-CN', {
+  // 格式化创建日期（显示在左上角）
+  const createdDate = new Date(post.fileInfo.created || post.fileInfo.modified);
+  const createdDateText = createdDate.toLocaleDateString('zh-CN', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
@@ -964,12 +964,41 @@ function renderPost(post) {
   // 追加文字到现有的 SVG 图标后
   const existingDateText = postDate.querySelector('span.date-text');
   if (existingDateText) {
-    existingDateText.textContent = dateText;
+    existingDateText.textContent = createdDateText;
   } else {
     const dateSpan = document.createElement('span');
     dateSpan.className = 'date-text';
-    dateSpan.textContent = dateText;
+    dateSpan.textContent = createdDateText;
     postDate.appendChild(dateSpan);
+  }
+
+  // 添加更新时间到文章末尾（右下角）
+  // 先移除可能存在的旧更新时间元素
+  const existingUpdatedTime = postBody.querySelector('.post-updated-time');
+  if (existingUpdatedTime) {
+    existingUpdatedTime.remove();
+  }
+
+  // 只有在创建时间和修改时间不同时才显示更新时间
+  const modifiedDate = new Date(post.fileInfo.modified);
+  const createdDateForCompare = new Date(post.fileInfo.created || post.fileInfo.modified);
+  if (post.fileInfo.created && createdDateForCompare.getTime() !== modifiedDate.getTime()) {
+    const updatedDateText = modifiedDate.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    const updatedTimeDiv = document.createElement('div');
+    updatedTimeDiv.className = 'post-updated-time';
+    updatedTimeDiv.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M7 4v3l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <span>更新时间：${updatedDateText}</span>
+    `;
+    postBody.appendChild(updatedTimeDiv);
   }
 
   // 格式化文件大小

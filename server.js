@@ -887,7 +887,18 @@ app.get('/post/*', async (req, res) => {
                             </span>
                         </div>
                     </header>
-                    <div class="markdown-body">${parsed.html}</div>
+                    <div class="markdown-body">
+                        ${parsed.html}
+                        ${fileInfo.created && fileInfo.modified && new Date(fileInfo.created).getTime() !== new Date(fileInfo.modified).getTime() ? `
+                        <div class="post-updated-time">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.2"/>
+                                <path d="M7 4v3l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                            </svg>
+                            <span>更新时间：${new Date(fileInfo.modified).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                        </div>
+                        ` : ''}
+                    </div>
                 </article>
             </div>
         </main>

@@ -635,6 +635,24 @@ body {
   margin-bottom: 0 !important;
 }
 
+/* 文章更新时间（显示在右下角） */
+.post-updated-time {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-light);
+  font-size: 13px;
+  color: var(--text-placeholder);
+}
+
+.post-updated-time svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
 .markdown-body h1,
 .markdown-body h2,
 .markdown-body h3,
