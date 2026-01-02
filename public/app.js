@@ -484,6 +484,50 @@ function setupEventListeners() {
       closeMobileMenu();
     }
   });
+
+  // 一键收起/展开所有目录
+  const collapseAllBtn = document.getElementById('collapseAllBtn');
+  if (collapseAllBtn) {
+    let isCollapsed = false;
+    collapseAllBtn.addEventListener('click', () => {
+      const allDirs = postList.querySelectorAll('.nav-dir');
+      if (isCollapsed) {
+        // 展开所有目录
+        allDirs.forEach(dirElement => {
+          dirElement.classList.add('expanded');
+          const children = dirElement.querySelector('.nav-dir-children');
+          if (children) {
+            children.style.display = 'block';
+          }
+        });
+        collapseAllBtn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>收起</span>
+        `;
+        collapseAllBtn.title = '收起所有目录';
+        isCollapsed = false;
+      } else {
+        // 收起所有目录
+        allDirs.forEach(dirElement => {
+          dirElement.classList.remove('expanded');
+          const children = dirElement.querySelector('.nav-dir-children');
+          if (children) {
+            children.style.display = 'none';
+          }
+        });
+        collapseAllBtn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M10.5 8.75L7 5.25L3.5 8.75" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>展开</span>
+        `;
+        collapseAllBtn.title = '展开所有目录';
+        isCollapsed = true;
+      }
+    });
+  }
 }
 
 // 关闭移动端菜单
@@ -660,16 +704,6 @@ function renderPostsTree(tree) {
 
   postList.innerHTML = renderTreeNodes(tree, '', true); // 传入 true 表示这是根级别
 
-  // 只展开最新修改的文件夹（第一个目录）
-  const firstDir = postList.querySelector('.nav-dir');
-  if (firstDir) {
-    firstDir.classList.add('expanded');
-    const children = firstDir.querySelector('.nav-dir-children');
-    if (children) {
-      children.style.display = 'block';
-    }
-  }
-
   // 添加点击事件
   postList.querySelectorAll('.nav-item-file').forEach(item => {
     item.addEventListener('click', (e) => {
@@ -732,12 +766,22 @@ function renderPostsTree(tree) {
     });
   });
 
-  // 如果当前有文章，高亮对应项并展开父目录
+  // 默认展开所有目录
+  const allDirs = postList.querySelectorAll('.nav-dir');
+  allDirs.forEach(dirElement => {
+    dirElement.classList.add('expanded');
+    const children = dirElement.querySelector('.nav-dir-children');
+    if (children) {
+      children.style.display = 'block';
+    }
+  });
+
+  // 如果当前有文章，高亮对应项
   if (currentPost) {
     const currentItem = postList.querySelector(`[data-path="${currentPost.path}"]`);
     if (currentItem) {
       currentItem.classList.add('active');
-      // 展开所有父目录
+      // 确保所有父目录都是展开的
       let parent = currentItem.parentElement;
       while (parent && parent !== postList) {
         if (parent.classList.contains('nav-dir')) {
@@ -757,9 +801,9 @@ function renderPostsTree(tree) {
 function renderTreeNodes(node, prefix = '') {
   let html = '';
 
-  // 渲染目录
+  // 渲染目录（保持服务器端已排序的顺序，不进行字母排序）
   if (node.dirs) {
-    const dirNames = Object.keys(node.dirs).sort();
+    const dirNames = Object.keys(node.dirs);
     dirNames.forEach(dirName => {
       const dirNode = node.dirs[dirName];
       const dirPath = prefix ? `${prefix}/${dirName}` : dirName;
