@@ -9,11 +9,13 @@
  */
 
 const express = require('express');
+const compression = require('compression');
 const path = require('path');
 const fs = require('fs-extra');
 const GitManager = require('./utils/gitManager');
 const { parseMarkdown } = require('./utils/markdownParser');
 const cacheManager = require('./utils/cacheManager');
+const seoHelper = require('./utils/seoHelper');
 
 const app = express();
 
@@ -251,6 +253,7 @@ function showProgress(message, progress = null) {
 }
 
 // 中间件
+app.use(compression()); // 启用 gzip 压缩
 app.use(express.json());
 app.use(express.static('public'));
 
@@ -502,6 +505,86 @@ function buildDirectoryTree(files) {
   return tree;
 }
 
+// API: 生成 RSS Feed
+app.get('/rss.xml', async (req, res) => {
+  try {
+    // 检查缓存
+    const cached = cacheManager.get('rss');
+    if (cached) {
+      res.setHeader('Content-Type', 'application/xml');
+      res.send(cached);
+      return;
+    }
+
+    const files = await gitManager.getAllMarkdownFiles(config.mdPath);
+    const baseUrl = config.siteUrl || `${req.protocol}://${req.get('host')}`;
+
+    // 按修改时间排序，取最新的 20 篇文章
+    const recentFiles = files
+      .filter(file => !file.path.endsWith('.pdf'))
+      .sort((a, b) => new Date(b.modified) - new Date(a.modified))
+      .slice(0, 20);
+
+    let rss = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    rss += '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n';
+    rss += '  <channel>\n';
+    rss += `    <title>${config.siteTitle || 'PowerWiki'}</title>\n`;
+    rss += `    <link>${baseUrl}</link>\n`;
+    rss += `    <description>${config.siteDescription || 'PowerWiki - 一个现代化的知识库系统'}</description>\n`;
+    rss += `    <language>zh-CN</language>\n`;
+    rss += `    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>\n`;
+    rss += `    <atom:link href="${baseUrl}/rss.xml" rel="self" type="application/rss+xml" />\n`;
+
+    // 添加文章
+    for (const file of recentFiles) {
+      try {
+        const content = await gitManager.readMarkdownFile(file.path);
+        const parsed = parseMarkdown(content);
+        const fileInfo = await gitManager.getFileInfo(file.path);
+        const fileName = fileInfo.name.replace(/\.(md|markdown)$/i, '');
+        const title = fileName || parsed.title || '文章';
+
+        // 优化 HTML 和生成描述
+        const optimizedHtml = seoHelper.optimizeImageTags(parsed.html, title);
+        const description = seoHelper.generateDescription(optimizedHtml, title, 300); // RSS 描述可以长一些
+
+        const articleUrl = `${baseUrl}/post/${encodeURIComponent(file.path)}`;
+        const pubDate = new Date(file.modified).toUTCString();
+
+        rss += '    <item>\n';
+        rss += `      <title><![CDATA[${title}]]></title>\n`;
+        rss += `      <link>${articleUrl}</link>\n`;
+        rss += `      <description><![CDATA[${description}]]></description>\n`;
+        rss += `      <pubDate>${pubDate}</pubDate>\n`;
+        rss += `      <guid isPermaLink="true">${articleUrl}</guid>\n`;
+
+        // 添加分类（从路径提取）
+        const pathParts = file.path.split('/').filter(p => p && !p.endsWith('.md') && !p.endsWith('.markdown'));
+        pathParts.forEach(part => {
+          rss += `      <category><![CDATA[${part}]]></category>\n`;
+        });
+
+        rss += '    </item>\n';
+      } catch (error) {
+        // 忽略读取失败的文章
+        console.warn(`RSS: 跳过文章 ${file.path}:`, error.message);
+      }
+    }
+
+    rss += '  </channel>\n';
+    rss += '</rss>';
+
+    // 缓存 RSS（30分钟）
+    cacheManager.set('rss', '', rss, 30 * 60 * 1000);
+
+    res.setHeader('Content-Type', 'application/xml');
+    res.send(rss);
+  } catch (error) {
+    console.error('生成 RSS 失败:', error);
+    res.status(500).send('<?xml version="1.0" encoding="UTF-8"?><error>生成 RSS 失败</error>');
+  }
+});
+
 // API: 生成 sitemap.xml
 app.get('/sitemap.xml', async (req, res) => {
   try {
@@ -517,29 +600,62 @@ app.get('/sitemap.xml', async (req, res) => {
     const baseUrl = config.siteUrl || `${req.protocol}://${req.get('host')}`;
 
     let sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+    sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n';
+    sitemap += '        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n';
 
     // 添加首页
     sitemap += '  <url>\n';
     sitemap += `    <loc>${baseUrl}/</loc>\n`;
+    sitemap += `    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>\n`;
     sitemap += '    <changefreq>daily</changefreq>\n';
     sitemap += '    <priority>1.0</priority>\n';
     sitemap += '  </url>\n';
 
     // 添加所有文章
-    files.forEach(file => {
+    for (const file of files) {
       if (!file.path.endsWith('.pdf')) { // PDF 文件不加入 sitemap
         const url = `${baseUrl}/post/${encodeURIComponent(file.path)}`;
         const lastmod = new Date(file.modified).toISOString().split('T')[0];
+
+        // 根据文章新鲜度计算优先级
+        const daysSinceModified = (Date.now() - new Date(file.modified).getTime()) / (1000 * 60 * 60 * 24);
+        let priority = 0.8;
+        if (daysSinceModified < 7) {
+          priority = 0.9; // 一周内的文章
+        } else if (daysSinceModified < 30) {
+          priority = 0.8; // 一个月内的文章
+        } else if (daysSinceModified < 90) {
+          priority = 0.7; // 三个月内的文章
+        } else {
+          priority = 0.6; // 较旧的文章
+        }
 
         sitemap += '  <url>\n';
         sitemap += `    <loc>${url}</loc>\n`;
         sitemap += `    <lastmod>${lastmod}</lastmod>\n`;
         sitemap += '    <changefreq>weekly</changefreq>\n';
-        sitemap += '    <priority>0.8</priority>\n';
+        sitemap += `    <priority>${priority.toFixed(1)}</priority>\n`;
+
+        // 尝试提取文章中的图片
+        try {
+          const content = await gitManager.readMarkdownFile(file.path);
+          const parsed = parseMarkdown(content);
+          if (parsed.html) {
+            const images = seoHelper.extractImages(parsed.html, baseUrl);
+            // 只添加前3张图片到 sitemap
+            images.slice(0, 3).forEach(imgUrl => {
+              sitemap += '    <image:image>\n';
+              sitemap += `      <image:loc>${imgUrl}</image:loc>\n`;
+              sitemap += '    </image:image>\n';
+            });
+          }
+        } catch (error) {
+          // 忽略读取文章失败的情况
+        }
+
         sitemap += '  </url>\n';
       }
-    });
+    }
 
     sitemap += '</urlset>';
 
@@ -633,10 +749,22 @@ app.get('/api/post/*', async (req, res) => {
       const fileName = fileInfo.name.replace(/\.(md|markdown)$/i, '');
       const title = fileName || parsed.title;
 
+      // 优化图片标签（添加 alt 和 loading="lazy"）
+      const optimizedHtml = seoHelper.optimizeImageTags(parsed.html, title);
+
+      // 生成优化的 Meta 描述
+      const description = seoHelper.generateDescription(optimizedHtml, title);
+
+      // 提取关键词
+      const keywords = seoHelper.extractKeywords(optimizedHtml, title, filePath);
+
       const result = {
         ...parsed,
         type: 'markdown',
         title, // 使用文件名作为标题
+        html: optimizedHtml, // 使用优化后的 HTML
+        description, // 使用生成的描述
+        keywords, // 添加关键词
         fileInfo,
         path: filePath,
         viewCount
@@ -1004,6 +1132,7 @@ app.get('/', async (req, res) => {
     <meta name="description" content="${config.siteDescription || 'PowerWiki - 一个现代化的知识库系统'}">
     <meta name="keywords" content="知识库,文档,Markdown,Wiki">
     <link rel="canonical" href="${config.siteUrl || `${req.protocol}://${req.get('host')}`}">
+    <link rel="alternate" type="application/rss+xml" title="${config.siteTitle || 'PowerWiki'} RSS Feed" href="${config.siteUrl || `${req.protocol}://${req.get('host')}`}/rss.xml">
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -1110,16 +1239,35 @@ app.get('/post/*', async (req, res) => {
       const baseUrl = config.siteUrl || `${req.protocol}://${req.get('host')}`;
       const articleUrl = `${baseUrl}/post/${encodeURIComponent(filePath)}`;
       const articleTitle = `${title} - ${config.siteTitle || 'PowerWiki'}`;
-      const articleDescription = parsed.description || title || 'PowerWiki 文章';
 
-      // 提取第一张图片
-      let articleImage = '';
-      if (parsed.html) {
-        const imgMatch = parsed.html.match(/<img[^>]+src="([^"]+)"/i);
-        if (imgMatch && imgMatch[1]) {
-          articleImage = imgMatch[1].startsWith('http') ? imgMatch[1] : `${baseUrl}${imgMatch[1]}`;
-        }
-      }
+      // 优化图片标签
+      const optimizedHtml = seoHelper.optimizeImageTags(parsed.html, title);
+
+      // 生成优化的描述
+      const articleDescription = seoHelper.generateDescription(optimizedHtml, title);
+
+      // 提取关键词
+      const articleKeywords = seoHelper.extractKeywords(optimizedHtml, title, filePath);
+
+      // 提取图片
+      const images = seoHelper.extractImages(optimizedHtml, baseUrl);
+      const articleImage = images.length > 0 ? images[0] : '';
+
+      // 生成面包屑导航结构化数据
+      const breadcrumbSchema = seoHelper.generateBreadcrumbSchema(filePath, baseUrl, config.siteTitle || 'PowerWiki');
+
+      // 生成文章结构化数据
+      const articleSchema = seoHelper.generateArticleSchema({
+        title: title,
+        description: articleDescription,
+        url: articleUrl,
+        datePublished: new Date(fileInfo.created || fileInfo.modified).toISOString(),
+        dateModified: new Date(fileInfo.modified).toISOString(),
+        authorName: config.siteTitle || 'PowerWiki',
+        authorUrl: baseUrl,
+        image: articleImage || undefined,
+        keywords: articleKeywords
+      });
 
       const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1128,9 +1276,10 @@ app.get('/post/*', async (req, res) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${articleTitle}</title>
     <meta name="description" content="${articleDescription}">
-    <meta name="keywords" content="${title},知识库,文档">
+    <meta name="keywords" content="${articleKeywords}">
     <link rel="canonical" href="${articleUrl}">
-    
+    <link rel="alternate" type="application/rss+xml" title="${config.siteTitle || 'PowerWiki'} RSS Feed" href="${baseUrl}/rss.xml">
+
     <!-- Open Graph -->
     <meta property="og:type" content="article">
     <meta property="og:url" content="${articleUrl}">
@@ -1138,25 +1287,23 @@ app.get('/post/*', async (req, res) => {
     <meta property="og:description" content="${articleDescription}">
     ${articleImage ? `<meta property="og:image" content="${articleImage}">` : ''}
     <meta property="og:site_name" content="${config.siteTitle || 'PowerWiki'}">
-    
-    <!-- Structured Data -->
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${articleTitle}">
+    <meta name="twitter:description" content="${articleDescription}">
+    ${articleImage ? `<meta name="twitter:image" content="${articleImage}">` : ''}
+
+    <!-- Structured Data - Article -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Article",
-      "headline": "${title}",
-      "description": "${articleDescription}",
-      "url": "${articleUrl}",
-      "datePublished": "${new Date(fileInfo.created || fileInfo.modified).toISOString()}",
-      "dateModified": "${new Date(fileInfo.modified).toISOString()}",
-      "author": {
-        "@type": "Organization",
-        "name": "${config.siteTitle || 'PowerWiki'}"
-      }${articleImage ? `,
-      "image": "${articleImage}"` : ''}
-    }
+    ${JSON.stringify(articleSchema)}
     </script>
-    
+
+    <!-- Structured Data - Breadcrumb -->
+    ${breadcrumbSchema ? `<script type="application/ld+json">
+    ${JSON.stringify(breadcrumbSchema)}
+    </script>` : ''}
+
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
 </head>
@@ -1179,7 +1326,7 @@ app.get('/post/*', async (req, res) => {
                         </div>
                     </header>
                     <div class="markdown-body">
-                        ${parsed.html}
+                        ${optimizedHtml}
                         ${fileInfo.created && fileInfo.modified && new Date(fileInfo.created).getTime() !== new Date(fileInfo.modified).getTime() ? `
                         <div class="post-updated-time">
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
