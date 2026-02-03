@@ -84,6 +84,27 @@ Edit `config.json`:
 | `pages.home` | Home page file | `""` |
 | `pages.about` | About page file | `""` |
 
+### Environment Variables
+
+PowerWiki supports environment variables for flexible deployment (especially useful for Docker):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CONFIG_PATH` | `./config.json` | Path to configuration file |
+| `DATA_DIR` | App root | Directory for stats and access logs |
+| `GIT_CACHE_DIR` | `./.git-repos` | Git repository cache directory |
+| `LANG` | `zh-CN` | Console output language (`zh-CN`, `en`) |
+
+Example:
+
+```bash
+# Use custom paths
+CONFIG_PATH=/etc/powerwiki/config.json DATA_DIR=/var/lib/powerwiki npm start
+
+# Use English console output
+LANG=en npm start
+```
+
 ## 📁 Project Structure
 
 ```
@@ -91,6 +112,10 @@ PowerWiki/
 ├── server.js              # Express server
 ├── config.example.json    # Config template
 ├── package.json           # Dependencies
+├── locales/               # i18n translations
+│   ├── zh-CN.json         # Chinese (Simplified)
+│   ├── en.json            # English
+│   └── index.js           # Translation loader
 ├── utils/
 │   ├── gitManager.js      # Git operations
 │   └── markdownParser.js  # Markdown parser

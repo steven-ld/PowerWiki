@@ -1,0 +1,32 @@
+{
+  "config.loaded": "📄 Config loaded from: {path}",
+  "config.error": "❌ Failed to load config: {path}",
+  "config.missing_repo": "❌ Config error: gitRepo is required",
+  "config.hint": "💡 Hint: Copy config.example.json to config.json and edit it",
+  "config.hint_env": "💡 Or set CONFIG_PATH environment variable",
+
+  "git.syncing": "📦 Syncing Git repository...",
+  "git.updated": "✅ Repository updated!",
+  "git.up_to_date": "✅ Repository is up to date",
+  "git.cache_cleared": "🗑️  Cache cleared",
+  "git.init_error": "❌ Failed to initialize repository: {error}",
+  "git.init_hint": "💡 Hint: Check Git repository URL and network connection",
+
+  "sync.skip_operating": "⏸️  Skipping sync: Git operation in progress...",
+  "sync.skip_not_init": "⏸️  Skipping sync: Repository not initialized...",
+  "sync.auto_updated": "⏰ [{time}] Repository updated, auto synced",
+  "sync.started": "🔄 Auto sync started, interval: {interval}s",
+  "sync.error": "❌ Auto sync failed: {error}",
+
+  "server.started": "🚀 Blog server started: http://localhost:{port}",
+  "server.git_repo": "📝 Git repository: {repo}",
+  "server.branch": "🌿 Branch: {branch}",
+  "server.sync_interval": "⏱️  Auto sync interval: {interval}s",
+  "server.hint": "💡 Hint: If sync fails, check gitRepo in config.json",
+  "server.sync_failed_warning": "⚠️  Repository sync failed, but server is running. Check Git config.",
+
+  "stats.read_error": "Failed to read stats:",
+  "stats.save_error": "Failed to save stats:",
+  "stats.access_read_error": "Failed to read access log:",
+  "stats.access_save_error": "Failed to save access log:"
+}

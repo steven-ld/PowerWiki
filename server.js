@@ -16,12 +16,23 @@ const GitManager = require('./utils/gitManager');
 const { parseMarkdown } = require('./utils/markdownParser');
 const cacheManager = require('./utils/cacheManager');
 const seoHelper = require('./utils/seoHelper');
+const { t } = require('./locales');
 
 const app = express();
 
+// 环境变量配置（支持 Docker 和自定义部署）
+const dataDir = process.env.DATA_DIR || __dirname;
+const configPath = process.env.CONFIG_PATH || path.join(__dirname, 'config.json');
+const gitCacheDir = process.env.GIT_CACHE_DIR || './.git-repos';
+
+// 确保数据目录存在
+if (dataDir !== __dirname) {
+  fs.ensureDirSync(dataDir);
+}
+
 // 统计文件路径
-const statsFilePath = path.join(__dirname, '.stats.json');
-const accessLogFilePath = path.join(__dirname, '.access-log.json');
+const statsFilePath = path.join(dataDir, '.stats.json');
+const accessLogFilePath = path.join(dataDir, '.access-log.json');
 
 /**
  * 读取统计数据
@@ -34,7 +45,7 @@ function readStats() {
       return JSON.parse(data);
     }
   } catch (error) {
-    console.error('读取统计数据失败:', error);
+    console.error(t('stats.read_error'), error);
   }
   return {
     totalViews: 0,
@@ -50,7 +61,7 @@ function saveStats(stats) {
   try {
     fs.writeFileSync(statsFilePath, JSON.stringify(stats, null, 2), 'utf-8');
   } catch (error) {
-    console.error('保存统计数据失败:', error);
+    console.error(t('stats.save_error'), error);
   }
 }
 
@@ -65,7 +76,7 @@ function readAccessLog() {
       return JSON.parse(data);
     }
   } catch (error) {
-    console.error('读取访问日志失败:', error);
+    console.error(t('stats.access_read_error'), error);
   }
   return [];
 }
@@ -81,7 +92,7 @@ function saveAccessLog(log) {
     const trimmedLog = log.slice(-maxRecords);
     fs.writeFileSync(accessLogFilePath, JSON.stringify(trimmedLog, null, 2), 'utf-8');
   } catch (error) {
-    console.error('保存访问日志失败:', error);
+    console.error(t('stats.access_save_error'), error);
   }
 }
 
@@ -200,11 +211,12 @@ function recordPostView(filePath, req) {
 // 加载配置文件
 let config;
 try {
-  config = require('./config.json');
+  config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  console.log(t('config.loaded', { path: configPath }));
 
   // 验证配置
   if (!config.gitRepo) {
-    console.error('❌ 配置错误: gitRepo 是必需的');
+    console.error(t('config.missing_repo'));
     process.exit(1);
   }
 
@@ -214,13 +226,14 @@ try {
   config.pages.about = config.pages.about || '';
 
 } catch (error) {
-  console.error('❌ 配置文件加载失败，请确保 config.json 文件存在');
-  console.error('💡 提示: 可以复制 config.example.json 为 config.json 并修改配置');
+  console.error(t('config.error', { path: configPath }));
+  console.error(t('config.hint'));
+  console.error(t('config.hint_env'));
   process.exit(1);
 }
 
 // 初始化 GitManager
-const gitManager = new GitManager(config.gitRepo, config.repoBranch, './.git-repos');
+const gitManager = new GitManager(config.gitRepo, config.repoBranch, gitCacheDir);
 
 // 仓库初始化状态
 let repoInitialized = false;
@@ -306,23 +319,23 @@ async function initRepo() {
     // 设置进度回调
     gitManager.setProgressCallback(showProgress);
 
-    console.log('📦 正在同步 Git 仓库...');
+    console.log(t('git.syncing'));
     const result = await gitManager.cloneOrUpdate();
     if (result.updated) {
-      console.log('✅ 仓库已更新！');
+      console.log(t('git.updated'));
       // 清除相关缓存
       cacheManager.delete('posts');
       cacheManager.delete('config');
-      console.log('🗑️  已清除相关缓存');
+      console.log(t('git.cache_cleared'));
     } else {
-      console.log('✅ 仓库已是最新版本');
+      console.log(t('git.up_to_date'));
     }
     repoInitialized = true;
     // 清除配置缓存，让前端重新加载
     cacheManager.delete('config');
   } catch (error) {
-    console.error('❌ 初始化仓库失败:', error.message);
-    console.error('💡 提示: 请检查 Git 仓库地址和网络连接');
+    console.error(t('git.init_error', { error: error.message }));
+    console.error(t('git.init_hint'));
     repoInitialized = false; // 初始化失败
   } finally {
     repoInitializing = false;
@@ -338,13 +351,13 @@ function startAutoSync() {
   setInterval(async () => {
     // 检查是否正在操作（包括初始化和自动同步）
     if (repoInitializing || gitManager.isOperating) {
-      console.log('⏸️  跳过本次同步：Git 操作正在进行中...');
+      console.log(t('sync.skip_operating'));
       return;
     }
 
     // 检查仓库是否已初始化
     if (!repoInitialized) {
-      console.log('⏸️  跳过本次同步：仓库尚未初始化完成...');
+      console.log(t('sync.skip_not_init'));
       return;
     }
 
@@ -354,11 +367,11 @@ function startAutoSync() {
 
       const result = await gitManager.cloneOrUpdate();
       if (result.updated) {
-        console.log('⏰ [' + new Date().toLocaleString() + '] 仓库有更新，已自动同步');
+        console.log(t('sync.auto_updated', { time: new Date().toLocaleString() }));
         // 清除相关缓存
         cacheManager.delete('posts');
         cacheManager.delete('config');
-        console.log('🗑️  已清除相关缓存');
+        console.log(t('git.cache_cleared'));
       }
       // 没有更新时完全静默，不打印任何日志
     } catch (error) {
@@ -366,10 +379,10 @@ function startAutoSync() {
       if (error.message && error.message.includes('正在进行中')) {
         return;
       }
-      console.error('❌ 自动同步失败:', error.message);
+      console.error(t('sync.error', { error: error.message }));
     }
   }, interval);
-  console.log(`🔄 已启动自动同步，间隔: ${interval / 1000}秒`);
+  console.log(t('sync.started', { interval: interval / 1000 }));
 }
 
 /**
@@ -1367,17 +1380,17 @@ async function startServer() {
   // 先启动服务器，再同步仓库（避免仓库同步失败导致服务器无法启动）
   app.listen(PORT, () => {
     console.log('════════════════════════════════════════');
-    console.log(`🚀 博客服务器已启动: http://localhost:${PORT}`);
-    console.log(`📝 Git 仓库: ${config.gitRepo}`);
-    console.log(`🌿 分支: ${config.repoBranch}`);
-    console.log(`⏱️  自动同步间隔: ${(config.autoSyncInterval || 180000) / 1000}秒`);
+    console.log(t('server.started', { port: PORT }));
+    console.log(t('server.git_repo', { repo: config.gitRepo }));
+    console.log(t('server.branch', { branch: config.repoBranch }));
+    console.log(t('server.sync_interval', { interval: (config.autoSyncInterval || 180000) / 1000 }));
     console.log('════════════════════════════════════════');
-    console.log(`💡 提示: 如果仓库同步失败，请检查 config.json 中的 gitRepo 配置`);
+    console.log(t('server.hint'));
   });
 
   // 异步同步仓库（不阻塞服务器启动）
   initRepo().catch(err => {
-    console.error('⚠️  仓库同步失败，但服务器已启动。请检查 Git 仓库配置。');
+    console.error(t('server.sync_failed_warning'));
   });
 
   // 启动自动同步

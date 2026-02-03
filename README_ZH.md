@@ -84,6 +84,27 @@ npm start
 | `pages.home` | 首页文件 | `""` |
 | `pages.about` | 关于页面文件 | `""` |
 
+### 环境变量
+
+PowerWiki 支持通过环境变量进行灵活配置（特别适用于 Docker 部署）：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `CONFIG_PATH` | `./config.json` | 配置文件路径 |
+| `DATA_DIR` | 应用根目录 | 统计数据和访问日志存储目录 |
+| `GIT_CACHE_DIR` | `./.git-repos` | Git 仓库缓存目录 |
+| `LANG` | `zh-CN` | 控制台输出语言（`zh-CN`、`en`） |
+
+使用示例：
+
+```bash
+# 使用自定义路径
+CONFIG_PATH=/etc/powerwiki/config.json DATA_DIR=/var/lib/powerwiki npm start
+
+# 使用英文控制台输出
+LANG=en npm start
+```
+
 ## 📁 项目结构
 
 ```
@@ -91,6 +112,10 @@ PowerWiki/
 ├── server.js              # Express 服务器
 ├── config.example.json    # 配置模板
 ├── package.json           # 项目依赖
+├── locales/               # 多语言翻译
+│   ├── zh-CN.json         # 简体中文
+│   ├── en.json            # 英文
+│   └── index.js           # 翻译加载器
 ├── utils/
 │   ├── gitManager.js      # Git 操作模块
 │   └── markdownParser.js  # Markdown 解析模块

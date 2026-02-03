@@ -1,0 +1,32 @@
+{
+  "config.loaded": "📄 配置文件加载自: {path}",
+  "config.error": "❌ 配置文件加载失败: {path}",
+  "config.missing_repo": "❌ 配置错误: gitRepo 是必需的",
+  "config.hint": "💡 提示: 可以复制 config.example.json 为 config.json 并修改配置",
+  "config.hint_env": "💡 或设置 CONFIG_PATH 环境变量指向配置文件",
+
+  "git.syncing": "📦 正在同步 Git 仓库...",
+  "git.updated": "✅ 仓库已更新！",
+  "git.up_to_date": "✅ 仓库已是最新版本",
+  "git.cache_cleared": "🗑️  已清除相关缓存",
+  "git.init_error": "❌ 初始化仓库失败: {error}",
+  "git.init_hint": "💡 提示: 请检查 Git 仓库地址和网络连接",
+
+  "sync.skip_operating": "⏸️  跳过本次同步：Git 操作正在进行中...",
+  "sync.skip_not_init": "⏸️  跳过本次同步：仓库尚未初始化完成...",
+  "sync.auto_updated": "⏰ [{time}] 仓库有更新，已自动同步",
+  "sync.started": "🔄 已启动自动同步，间隔: {interval}秒",
+  "sync.error": "❌ 自动同步失败: {error}",
+
+  "server.started": "🚀 博客服务器已启动: http://localhost:{port}",
+  "server.git_repo": "📝 Git 仓库: {repo}",
+  "server.branch": "🌿 分支: {branch}",
+  "server.sync_interval": "⏱️  自动同步间隔: {interval}秒",
+  "server.hint": "💡 提示: 如果仓库同步失败，请检查 config.json 中的 gitRepo 配置",
+  "server.sync_failed_warning": "⚠️  仓库同步失败，但服务器已启动。请检查 Git 仓库配置。",
+
+  "stats.read_error": "读取统计数据失败:",
+  "stats.save_error": "保存统计数据失败:",
+  "stats.access_read_error": "读取访问日志失败:",
+  "stats.access_save_error": "保存访问日志失败:"
+}
