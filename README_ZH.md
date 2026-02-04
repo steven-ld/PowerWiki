@@ -87,6 +87,71 @@ npm start
 | `pages.home` | 首页文件 | `""` |
 | `pages.about` | 关于页面文件 | `""` |
 
+## 📂 文章文件夹结构
+
+PowerWiki 支持层次化的文件夹结构来组织文章。文章存储在 Git 仓库中，自动同步。
+
+### 文件夹结构示例
+
+```
+your-wiki-repo/
+├── README.md              # 首页
+├── ABOUT.md               # 关于页面
+├── 架构设计/              # 分类文件夹（支持中文）
+│   ├── 物模型：IoT设备标准化实践.md
+│   ├── TLS加密算法深度解析.md
+│   └── README.md          # 分类索引页
+├── 项目实践/               # 另一个分类
+│   ├── OpenResty + Redis 短链接服务系统.md
+│   └── README.md
+└── 音视频/
+    ├── WebRTC 信令服务详解.md
+    └── README.md
+```
+
+### 文章 Frontmatter 格式
+
+每篇文章可以包含 YAML frontmatter 元信息：
+
+```yaml
+---
+title: 文章标题
+description: 文章描述（用于 SEO）
+author: 作者名称
+date: 2026-01-10
+updated: 2026-01-10
+keywords: 关键词1, 关键词2, 关键词3
+tags: [标签1, 标签2]
+---
+```
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `title` | 是 | 文章标题（显示为页面标题） |
+| `description` | 否 | SEO meta 描述 |
+| `author` | 否 | 作者名称 |
+| `date` | 否 | 创建日期（YYYY-MM-DD） |
+| `updated` | 否 | 最后修改日期（YYYY-MM-DD） |
+| `keywords` | 否 | SEO 关键词（逗号分隔） |
+| `tags` | 否 | 文章标签（数组） |
+
+### 本地图片
+
+将图片放在 Markdown 文件相对路径的文件夹中：
+
+```
+your-wiki-repo/
+├── 架构设计/
+│   ├── 物模型/
+│   │   ├── architecture.png
+│   │   └── README.md
+```
+
+在 Markdown 中引用：
+```markdown
+![架构图](architecture.png)
+```
+
 ## 📁 项目结构
 
 ```

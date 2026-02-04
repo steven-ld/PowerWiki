@@ -87,6 +87,71 @@ Edit `config.json`:
 | `pages.home` | Home page file | `""` |
 | `pages.about` | About page file | `""` |
 
+## 📂 Article Folder Structure
+
+PowerWiki supports organizing articles with a hierarchical folder structure. Articles are stored in your Git repository and synced automatically.
+
+### Folder Structure Example
+
+```
+your-wiki-repo/
+├── README.md              # Home page
+├── ABOUT.md               # About page
+├── 架构设计/              # Category folder (Chinese supported)
+│   ├── 物模型：IoT设备标准化实践.md
+│   ├── TLS加密算法深度解析.md
+│   └── README.md          # Category index page
+├── 项目实践/              # Another category
+│   ├── OpenResty + Redis 短链接服务系统.md
+│   └── README.md
+└── 音视频/
+    ├── WebRTC 信令服务详解.md
+    └── README.md
+```
+
+### Article Frontmatter Format
+
+Each article can include YAML frontmatter for metadata:
+
+```yaml
+---
+title: Article Title
+description: Article description for SEO
+author: Author Name
+date: 2026-01-10
+updated: 2026-01-10
+keywords: keyword1, keyword2, keyword3
+tags: [tag1, tag2]
+---
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `title` | Yes | Article title (displayed as page title) |
+| `description` | No | SEO meta description |
+| `author` | No | Author name |
+| `date` | No | Creation date (YYYY-MM-DD) |
+| `updated` | No | Last modified date (YYYY-MM-DD) |
+| `keywords` | No | SEO keywords (comma-separated) |
+| `tags` | No | Article tags (array) |
+
+### Local Images
+
+Place images in a folder relative to your Markdown file:
+
+```
+your-wiki-repo/
+├── 架构设计/
+│   ├── 物模型/
+│   │   ├── architecture.png
+│   │   └── README.md
+```
+
+Reference in Markdown:
+```markdown
+![Architecture](architecture.png)
+```
+
 ## 📁 Project Structure
 
 ```
