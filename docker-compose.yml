@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  powerwiki:
+    build: .
+    ports:
+      - "3150:3150"
+    environment:
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
+      - GIT_CACHE_DIR=/app/cache
+      - LANG=zh-CN
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - powerwiki_data:/app/data
+      - powerwiki_cache:/app/cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3150/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  powerwiki_data:
+  powerwiki_cache:

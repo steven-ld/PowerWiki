@@ -5,7 +5,13 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start:en": "LANG=en node server.js",
+    "start:zh": "LANG=zh-CN node server.js",
+    "docker:build": "docker build -t powerwiki .",
+    "docker:run": "docker run -d -p 3150:3150 --name powerwiki -v $(pwd)/config.json:/app/config.json:ro powerwiki",
+    "docker:stop": "docker stop powerwiki && docker rm powerwiki",
+    "docker:logs": "docker logs -f powerwiki"
   },
   "keywords": [
     "wiki",

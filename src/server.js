@@ -132,7 +132,7 @@ function startAutoSync() {
   console.log(`🔄 已启动自动同步，间隔: ${interval / 1000}秒`);
 }
 
-const PORT = config.port || 3000;
+const PORT = config.port || 3150;
 
 async function startServer() {
   app.listen(PORT, () => {

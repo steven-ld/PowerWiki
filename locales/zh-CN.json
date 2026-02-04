@@ -1,0 +1,27 @@
+{
+  "server": {
+    "starting": "正在启动 PowerWiki 服务器...",
+    "started": "PowerWiki 服务器已启动",
+    "port": "端口",
+    "stopping": "正在停止服务器..."
+  },
+  "git": {
+    "cloning": "正在克隆仓库...",
+    "pulling": "正在拉取最新更新...",
+    "syncing": "正在同步仓库...",
+    "syncComplete": "仓库同步完成",
+    "syncFailed": "仓库同步失败",
+    "autoSyncEnabled": "自动同步已启用，间隔",
+    "minutes": "分钟"
+  },
+  "cache": {
+    "clearing": "正在清理缓存...",
+    "cleared": "缓存已清理"
+  },
+  "error": {
+    "configNotFound": "配置文件未找到",
+    "gitRepoRequired": "Git 仓库 URL 是必需的",
+    "fileNotFound": "文件未找到",
+    "serverError": "服务器错误"
+  }
+}

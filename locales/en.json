@@ -1,0 +1,27 @@
+{
+  "server": {
+    "starting": "Starting PowerWiki server...",
+    "started": "PowerWiki server started",
+    "port": "Port",
+    "stopping": "Stopping server..."
+  },
+  "git": {
+    "cloning": "Cloning repository...",
+    "pulling": "Pulling latest updates...",
+    "syncing": "Syncing repository...",
+    "syncComplete": "Repository sync completed",
+    "syncFailed": "Repository sync failed",
+    "autoSyncEnabled": "Auto sync enabled, interval",
+    "minutes": "minutes"
+  },
+  "cache": {
+    "clearing": "Clearing cache...",
+    "cleared": "Cache cleared"
+  },
+  "error": {
+    "configNotFound": "Configuration file not found",
+    "gitRepoRequired": "Git repository URL is required",
+    "fileNotFound": "File not found",
+    "serverError": "Server error"
+  }
+}

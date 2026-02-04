@@ -1,0 +1,40 @@
+# Docker 相关文件
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# 数据目录
+data/
+cache/
+.git-cache/
+.git-repos/
+
+# 日志和统计文件
+.stats.json
+.access-log.json
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 环境变量
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/

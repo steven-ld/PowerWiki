@@ -16,12 +16,14 @@ const GitManager = require('./utils/gitManager');
 const { parseMarkdown, transformLocalImagePaths } = require('./utils/markdownParser');
 const cacheManager = require('./utils/cacheManager');
 const seoHelper = require('./utils/seoHelper');
+const env = require('./config/env');
+const { t } = require('./config/i18n');
 
 const app = express();
 
-// 统计文件路径
-const statsFilePath = path.join(__dirname, '.stats.json');
-const accessLogFilePath = path.join(__dirname, '.access-log.json');
+// 统计文件路径（使用环境变量）
+const statsFilePath = path.join(env.DATA_DIR, '.stats.json');
+const accessLogFilePath = path.join(env.DATA_DIR, '.access-log.json');
 
 /**
  * 读取统计数据
@@ -197,14 +199,14 @@ function recordPostView(filePath, req) {
   return stats.postViews[filePath];
 }
 
-// 加载配置文件
+// 加载配置文件（使用环境变量）
 let config;
 try {
-  config = require('./config.json');
+  config = require(env.CONFIG_PATH);
 
   // 验证配置
   if (!config.gitRepo) {
-    console.error('❌ 配置错误: gitRepo 是必需的');
+    console.error(`❌ ${t('error.gitRepoRequired')}`);
     process.exit(1);
   }
 
@@ -214,13 +216,13 @@ try {
   config.pages.about = config.pages.about || '';
 
 } catch (error) {
-  console.error('❌ 配置文件加载失败，请确保 config.json 文件存在');
+  console.error(`❌ ${t('error.configNotFound')}`);
   console.error('💡 提示: 可以复制 config.example.json 为 config.json 并修改配置');
   process.exit(1);
 }
 
-// 初始化 GitManager
-const gitManager = new GitManager(config.gitRepo, config.repoBranch, './.git-repos');
+// 初始化 GitManager（使用环境变量）
+const gitManager = new GitManager(config.gitRepo, config.repoBranch, env.GIT_CACHE_DIR);
 
 // 仓库初始化状态
 let repoInitialized = false;
@@ -306,14 +308,14 @@ async function initRepo() {
     // 设置进度回调
     gitManager.setProgressCallback(showProgress);
 
-    console.log('📦 正在同步 Git 仓库...');
+    console.log(`📦 ${t('git.syncing')}`);
     const result = await gitManager.cloneOrUpdate();
     if (result.updated) {
-      console.log('✅ 仓库已更新！');
+      console.log(`✅ ${t('git.syncComplete')}`);
       // 清除相关缓存
       cacheManager.delete('posts');
       cacheManager.delete('config');
-      console.log('🗑️  已清除相关缓存');
+      console.log(`🗑️  ${t('cache.cleared')}`);
     } else {
       console.log('✅ 仓库已是最新版本');
     }
@@ -335,6 +337,8 @@ async function initRepo() {
  */
 function startAutoSync() {
   const interval = config.autoSyncInterval || 180000; // 默认3分钟
+  console.log(`🔄 ${t('git.autoSyncEnabled')} ${interval / 60000} ${t('git.minutes')}`);
+  
   setInterval(async () => {
     // 检查是否正在操作（包括初始化和自动同步）
     if (repoInitializing || gitManager.isOperating) {
@@ -354,11 +358,11 @@ function startAutoSync() {
 
       const result = await gitManager.cloneOrUpdate();
       if (result.updated) {
-        console.log('⏰ [' + new Date().toLocaleString() + '] 仓库有更新，已自动同步');
+        console.log(`⏰ [${new Date().toLocaleString()}] ${t('git.syncComplete')}`);
         // 清除相关缓存
         cacheManager.delete('posts');
         cacheManager.delete('config');
-        console.log('🗑️  已清除相关缓存');
+        console.log(`🗑️  ${t('cache.cleared')}`);
       }
       // 没有更新时完全静默，不打印任何日志
     } catch (error) {
@@ -1408,7 +1412,7 @@ app.get('/stats', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-const PORT = config.port || 3000;
+const PORT = config.port || 3150;
 
 /**
  * 启动服务器
@@ -1418,17 +1422,17 @@ async function startServer() {
   // 先启动服务器，再同步仓库（避免仓库同步失败导致服务器无法启动）
   app.listen(PORT, () => {
     console.log('════════════════════════════════════════');
-    console.log(`🚀 博客服务器已启动: http://localhost:${PORT}`);
+    console.log(`🚀 ${t('server.started')}: http://localhost:${PORT}`);
     console.log(`📝 Git 仓库: ${config.gitRepo}`);
     console.log(`🌿 分支: ${config.repoBranch}`);
     console.log(`⏱️  自动同步间隔: ${(config.autoSyncInterval || 180000) / 1000}秒`);
     console.log('════════════════════════════════════════');
-    console.log(`💡 提示: 如果仓库同步失败，请检查 config.json 中的 gitRepo 配置`);
+    console.log(`💡 提示: 如果仓库同步失败，请检查配置文件中的 gitRepo 配置`);
   });
 
   // 异步同步仓库（不阻塞服务器启动）
   initRepo().catch(err => {
-    console.error('⚠️  仓库同步失败，但服务器已启动。请检查 Git 仓库配置。');
+    console.error(`⚠️  ${t('git.syncFailed')}，但服务器已启动。请检查 Git 仓库配置。`);
   });
 
   // 启动自动同步
