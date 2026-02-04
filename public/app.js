@@ -456,6 +456,8 @@ function setupEventListeners() {
           sidebarOverlay.classList.add('active');
         }
         document.body.style.overflow = 'hidden'; // 防止背景滚动
+        // 添加触摸事件防止滚动穿透
+        document.addEventListener('touchmove', preventScroll, { passive: false });
       } else {
         closeMobileMenu();
       }
@@ -530,6 +532,11 @@ function setupEventListeners() {
   }
 }
 
+// 防止滚动穿透
+function preventScroll(e) {
+  e.preventDefault();
+}
+
 // 关闭移动端菜单
 function closeMobileMenu() {
   isMobileMenuOpen = false;
@@ -540,6 +547,7 @@ function closeMobileMenu() {
     sidebarOverlay.classList.remove('active');
   }
   document.body.style.overflow = '';
+  document.removeEventListener('touchmove', preventScroll);
 }
 
 // 回到首页
