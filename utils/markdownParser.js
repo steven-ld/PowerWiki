@@ -116,24 +116,54 @@ function extractDescription(markdown) {
   return '';
 }
 
+/**
+ * 转换 Markdown 中的本地图片路径
+ * 将 ![](images/xxx.png) 转换为 ![](/api/image/路径/images/xxx.png)
+ * @param {string} markdown - Markdown 内容
+ * @param {string} filePath - 当前 markdown 文件路径
+ * @returns {string} 转换后的 Markdown
+ */
+function transformLocalImagePaths(markdown, filePath) {
+  // 计算 md 文件所在目录
+  const lastSlashIndex = filePath.lastIndexOf('/');
+  const mdDir = lastSlashIndex !== -1 ? filePath.substring(0, lastSlashIndex) : '';
+
+  // 匹配 ![xxx](images/yyy.png) 或 ![xxx](./images/yyy.png) 或 ![xxx](../images/yyy.png)
+  // 转换为 ![xxx](/api/image/路径/images/yyy.png)
+  return markdown.replace(/!\[([^\]]*)\]\((images[^)]*)\)/g, (match, alt, imagePath) => {
+    // 移除 imagePath 开头的 ./ 或 ./
+    const cleanImagePath = imagePath.replace(/^\.?\//, '');
+    const apiPath = mdDir ? `/api/image/${mdDir}/${cleanImagePath}` : `/api/image/${cleanImagePath}`;
+    return `![${alt}](${apiPath})`;
+  });
+}
+
 // 解析 Markdown
-function parseMarkdown(markdown) {
+// @param {string} markdown - Markdown 内容
+// @param {string} filePath - 可选，markdown 文件路径，用于转换本地图片路径
+function parseMarkdown(markdown, filePath = '') {
   // 先解析 Frontmatter
   const { frontmatter, content } = parseFrontmatter(markdown);
+
+  // 转换本地图片路径（如果有 filePath）
+  let processedContent = content;
+  if (filePath) {
+    processedContent = transformLocalImagePaths(content, filePath);
+  }
 
   let html;
   // 兼容不同版本的 marked (只解析内容部分，不包含 Frontmatter)
   try {
     if (typeof marked.parse === 'function') {
-      html = marked.parse(content);
+      html = marked.parse(processedContent);
     } else if (typeof marked === 'function') {
       html = marked(content);
     } else {
-      html = content; // 降级处理
+      html = processedContent; // 降级处理
     }
   } catch (err) {
     console.error('Markdown 解析错误:', err);
-    html = content;
+    html = processedContent;
   }
 
   // 优先使用 Frontmatter 中的信息，否则从内容中提取
@@ -156,6 +186,7 @@ function parseMarkdown(markdown) {
 module.exports = {
   parseMarkdown,
   extractTitle,
-  extractDescription
+  extractDescription,
+  transformLocalImagePaths
 };
 

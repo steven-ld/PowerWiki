@@ -228,8 +228,8 @@ class GitManager {
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
         
-        // 跳过 .git 目录
-        if (entry.name === '.git') continue;
+        // 跳过 .git 目录和 images 文件夹（images 是 markdown 的本地图片目录）
+        if (entry.name === '.git' || entry.name === 'images') continue;
         
         if (entry.isDirectory()) {
           await scanDirectory(fullPath);

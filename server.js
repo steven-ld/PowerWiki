@@ -13,7 +13,7 @@ const compression = require('compression');
 const path = require('path');
 const fs = require('fs-extra');
 const GitManager = require('./utils/gitManager');
-const { parseMarkdown } = require('./utils/markdownParser');
+const { parseMarkdown, transformLocalImagePaths } = require('./utils/markdownParser');
 const cacheManager = require('./utils/cacheManager');
 const seoHelper = require('./utils/seoHelper');
 
@@ -539,7 +539,7 @@ app.get('/rss.xml', async (req, res) => {
     for (const file of recentFiles) {
       try {
         const content = await gitManager.readMarkdownFile(file.path);
-        const parsed = parseMarkdown(content);
+        const parsed = parseMarkdown(content, file.path);
         const fileInfo = await gitManager.getFileInfo(file.path);
         const fileName = fileInfo.name.replace(/\.(md|markdown)$/i, '');
         const title = fileName || parsed.title || '文章';
@@ -639,7 +639,7 @@ app.get('/sitemap.xml', async (req, res) => {
         // 尝试提取文章中的图片
         try {
           const content = await gitManager.readMarkdownFile(file.path);
-          const parsed = parseMarkdown(content);
+          const parsed = parseMarkdown(content, file.path);
           if (parsed.html) {
             const images = seoHelper.extractImages(parsed.html, baseUrl);
             // 只添加前3张图片到 sitemap
@@ -742,7 +742,7 @@ app.get('/api/post/*', async (req, res) => {
     } else {
       // Markdown 文件处理
       const content = await gitManager.readMarkdownFile(filePath);
-      const parsed = parseMarkdown(content);
+      const parsed = parseMarkdown(content, filePath);
       const fileInfo = await gitManager.getFileInfo(filePath);
 
       // 使用文件名作为标题（去掉扩展名）
@@ -804,7 +804,7 @@ app.get('/api/config', async (req, res) => {
   if (homePagePath && repoInitialized) {
     try {
       const content = await gitManager.readMarkdownFile(homePagePath);
-      const parsed = parseMarkdown(content);
+      const parsed = parseMarkdown(content, homePagePath);
       homeContent = {
         html: parsed.html,
         title: parsed.title || '首页',
@@ -1092,7 +1092,7 @@ app.get('/', async (req, res) => {
       if (homePagePath) {
         try {
           const content = await gitManager.readMarkdownFile(homePagePath);
-          const parsed = parseMarkdown(content);
+          const parsed = parseMarkdown(content, homePagePath);
           homeContent = {
             html: parsed.html,
             title: parsed.title || '首页',
@@ -1158,6 +1158,57 @@ app.get('/', async (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// API: 获取本地图片文件
+// 图片存储在各文章目录的 images 文件夹中
+app.get('/api/image/*', async (req, res) => {
+  try {
+    let imagePath = req.params[0];
+    try {
+      imagePath = decodeURIComponent(imagePath);
+    } catch (e) {
+      console.warn('图片路径解码失败，使用原始路径:', imagePath);
+    }
+
+    // 构建完整路径
+    const fullPath = path.join(gitManager.repoPath, imagePath);
+
+    // 检查文件是否存在
+    if (!await fs.pathExists(fullPath)) {
+      console.warn('图片文件不存在:', fullPath);
+      return res.status(404).send('图片不存在');
+    }
+
+    // 读取图片文件
+    const imageBuffer = await fs.readFile(fullPath);
+    const fileName = path.basename(imagePath);
+
+    // 根据扩展名设置 Content-Type
+    const ext = path.extname(imagePath).toLowerCase();
+    const contentTypes = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.svg': 'image/svg+xml',
+      '.ico': 'image/x-icon'
+    };
+    const contentType = contentTypes[ext] || 'application/octet-stream';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
+    res.setHeader('Content-Length', imageBuffer.length);
+
+    // 设置缓存头（图片可以长期缓存）
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+
+    res.send(imageBuffer);
+  } catch (error) {
+    console.error('获取图片失败:', error);
+    res.status(404).send('图片不存在');
+  }
+});
+
 // API: 获取 PDF 文件（直接返回文件流）
 // 注意：PDF 文件不缓存，因为文件可能较大
 app.get('/api/pdf/*', async (req, res) => {
@@ -1212,7 +1263,7 @@ app.get('/post/*', async (req, res) => {
 
       // 读取文章内容
       const content = await gitManager.readMarkdownFile(filePath);
-      const parsed = parseMarkdown(content);
+      const parsed = parseMarkdown(content, filePath);
       const fileInfo = await gitManager.getFileInfo(filePath);
       const fileName = fileInfo.name.replace(/\.(md|markdown)$/i, '');
       const title = parsed.title || fileName;
