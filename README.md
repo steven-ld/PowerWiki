@@ -21,11 +21,14 @@ A modern Git-based Markdown wiki system with auto-sync, syntax highlighting, and
 - 📚 **Auto Sync** - Automatically sync from Git repositories
 - 🎨 **Syntax Highlighting** - Code highlighting powered by highlight.js
 - 📱 **Responsive Design** - Works on all devices
-- 📑 **Auto TOC** - Automatic table of contents generation
+- 📑 **Auto TOC** - Automatic table of contents generation with collapsible sections
 - 🎯 **Feishu-style UI** - Clean and modern interface
 - 📄 **PDF Support** - Render PDF files as high-quality images
 - 📊 **View Statistics** - Track article views
 - ⚡ **Lightweight** - No database required
+- 🔍 **SEO Optimized** - Full SEO optimization for search engine visibility
+- 📋 **Frontmatter Support** - Parse YAML frontmatter for metadata
+- 🖼️ **Local Images** - Support for local images in Markdown
 
 ## 🚀 Quick Start
 
