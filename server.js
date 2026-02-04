@@ -990,6 +990,11 @@ app.get('/api/stats/detail', (req, res) => {
       referrerStats[referrerType] = (referrerStats[referrerType] || 0) + 1;
     });
 
+    // 转换 postStats 中的 Set 为数字
+    Object.keys(postStats).forEach(filePath => {
+      postStats[filePath].uniqueIPs = postStats[filePath].uniqueIPs.size;
+    });
+
     // 计算访问深度和回访用户
     Object.keys(ipStats).forEach(ip => {
       const visitCount = ipStats[ip].count;
@@ -1008,11 +1013,6 @@ app.get('/api/stats/detail', (req, res) => {
       
       // 转换 Set 为数字
       ipStats[ip].posts = postCount;
-    });
-
-    // 转换 postStats 中的 Set 为数字
-    Object.keys(postStats).forEach(filePath => {
-      postStats[filePath].uniqueIPs = postStats[filePath].uniqueIPs.size;
     });
 
     Object.keys(postStats).forEach(filePath => {
@@ -1243,8 +1243,16 @@ app.get('/', async (req, res) => {
 app.get('/api/image/*', async (req, res) => {
   try {
     let imagePath = req.params[0];
+    
+    // 处理可能的双重编码
     try {
-      imagePath = decodeURIComponent(imagePath);
+      // 先尝试解码一次
+      let decodedPath = decodeURIComponent(imagePath);
+      // 如果还包含编码字符，再解码一次
+      if (decodedPath.includes('%')) {
+        decodedPath = decodeURIComponent(decodedPath);
+      }
+      imagePath = decodedPath;
     } catch (e) {
       console.warn('图片路径解码失败，使用原始路径:', imagePath);
     }
