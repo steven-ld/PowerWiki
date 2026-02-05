@@ -16,6 +16,32 @@ A modern Git-based Markdown wiki system with auto-sync, syntax highlighting, and
 
 ---
 
+## 💡 Design Philosophy
+
+PowerWiki was born from deep reflection on "knowledge management" and "technical writing". We believe in:
+
+### 1. Simplicity is Power
+
+No over-engineering, no complex wheels. Markdown + Git is the simplest knowledge management solution proven over a decade. No database, back to file systems, keeping knowledge pure.
+
+### 2. Geeks First
+
+Tailor-made for developers. Syntax highlighting, local image support, Git workflow — every feature comes from real development scenarios.
+
+### 3. Out of the Box
+
+Zero learning cost to get started. Clone and use, push and update. No complex configuration, no dedicated CMS required.
+
+### 4. Persistence & Portability
+
+Your data always belongs to you. Plain text storage, version control built-in, migrate to any platform anytime.
+
+### 5. Privacy & Security
+
+No registration, no cloud. All data stored in an environment you control.
+
+---
+
 ## ✨ Features
 
 - **Auto Sync** - Automatically sync from Git repositories
@@ -218,9 +244,29 @@ tags: [tag1, tag2]
 ---
 ```
 
+### Image References
+
+PowerWiki supports referencing local images using relative paths in Markdown. The system automatically converts image paths to accessible API URLs:
+
+```markdown
+# Method 1: Using images folder in current directory (recommended)
+![Image Description](./images/pic.png)
+
+# Method 2: Using parent directory's images folder
+![Image Description](../images/pic.png)
+
+# Method 3: Using absolute path (relative to repo root)
+![Image Description](/images/pic.png)
+
+# Method 4: Direct reference (without ./ or ../ prefix)
+![Image Description](images/pic.png)
+```
+
+Supported image formats: `PNG`, `JPG/JPEG`, `GIF`, `WEBP`, `SVG`, `ICO`
+
 ## 🌐 Multi-language Support
 
-PowerWiki supports multiple languages for console output:
+PowerWiki supports multiple languages for console output and allows users to customize language packs.
 
 ### Supported Languages
 - **Chinese Simplified** (`zh-CN`) - Default
@@ -239,6 +285,86 @@ LANG=zh-CN npm start
 npm run start:en
 npm run start:zh
 ```
+
+### Custom Language Packs
+
+PowerWiki uses JSON files for translations and supports adding custom languages.
+
+#### 1. Create Language File
+
+Create a new language file in the `locales/` directory with the format `<language-code>.json`:
+
+```bash
+# Example: Create Japanese language file
+cp locales/en.json locales/ja.json
+```
+
+#### 2. Edit Language File
+
+Modify `locales/ja.json` and replace English translations with Japanese:
+
+```json
+{
+  "siteTitle": "PowerWiki",
+  "siteDescription": "Wiki システム",
+  "nav": {
+    "home": "ホーム",
+    "about": "概要"
+  },
+  "content": {
+    "readingTime": "読み取り時間",
+    "words": "語",
+    "toc": "目次"
+  },
+  "actions": {
+    "copy": "コピー",
+    "copied": "コピー完了"
+  },
+  "stats": {
+    "views": "閲覧数"
+  },
+  "footer": {
+    "poweredBy": "Powered by"
+  }
+}
+```
+
+#### 3. Update Console Language Options
+
+Modify `src/config/i18n.js` and add your new language to the `SUPPORTED_LANGUAGES` array:
+
+```javascript
+const SUPPORTED_LANGUAGES = [
+  { code: 'zh-CN', name: '中文', file: 'zh-CN.json' },
+  { code: 'en', name: 'English', file: 'en.json' },
+  { code: 'ja', name: '日本語', file: 'ja.json' },  // Add Japanese
+];
+```
+
+#### 4. Use Custom Language
+
+```bash
+# Start with Japanese
+LANG=ja npm start
+```
+
+#### Language File Structure Reference
+
+Language files support the following keys (all are optional, missing keys will fall back to English):
+
+| Category | Key | Description |
+|----------|-----|-------------|
+| Site | `siteTitle` | Website title |
+| Site | `siteDescription` | Website description |
+| Nav | `nav.home` | Home link text |
+| Nav | `nav.about` | About page link text |
+| Content | `content.readingTime` | Reading time label |
+| Content | `content.words` | Words unit |
+| Content | `content.toc` | Table of contents title |
+| Actions | `actions.copy` | Copy button |
+| Actions | `actions.copied` | Copied success message |
+| Stats | `stats.views` | View count label |
+| Footer | `footer.poweredBy` | Powered by text |
 
 ## 🛠️ Development
 

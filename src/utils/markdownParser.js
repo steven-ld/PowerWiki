@@ -106,9 +106,48 @@ function transformLocalImagePaths(markdown, filePath) {
   const lastSlashIndex = filePath.lastIndexOf('/');
   const mdDir = lastSlashIndex !== -1 ? filePath.substring(0, lastSlashIndex) : '';
 
-  return markdown.replace(/!\[([^\]]*)\]\((images[^)]*)\)/g, (match, alt, imagePath) => {
-    const cleanImagePath = imagePath.replace(/^\.?\//, '');
-    const apiPath = mdDir ? `/api/image/${mdDir}/${cleanImagePath}` : `/api/image/${cleanImagePath}`;
+  // 匹配所有本地图片路径：
+  // - ./image/xxx.png
+  // - ../image/xxx.png
+  // - /image/xxx.png
+  // - images/xxx.png
+  // 支持常见图片格式：png, jpg, jpeg, gif, webp, svg, ico
+  const imageRegex = /!\[([^\]]*)\]\(([^)]+\.(?:png|jpg|jpeg|gif|webp|svg|ico))\)/gi;
+
+  return markdown.replace(imageRegex, (match, alt, imagePath) => {
+    // 跳过绝对 URL（http://, https://, //）
+    if (/^(https?:)?\/\//i.test(imagePath)) {
+      return match;
+    }
+
+    // 清理路径：移除开头的 ./ 或 /
+    const cleanImagePath = imagePath.replace(/^\.\.?[\/\\]/, '').replace(/^\/+/, '');
+
+    // 处理 ../ 返回上一级目录的情况
+    let resolvedPath = cleanImagePath;
+    const parentRefs = (imagePath.match(/\.\.\//g) || []).length;
+
+    if (parentRefs > 0 && mdDir) {
+      // 将 ../ 路径转换为基于 mdDir 的正确路径
+      let newMdDir = mdDir;
+      for (let i = 0; i < parentRefs; i++) {
+        const lastSlash = newMdDir.lastIndexOf('/');
+        if (lastSlash !== -1) {
+          newMdDir = newMdDir.substring(0, lastSlash);
+        } else {
+          newMdDir = '';
+          break;
+        }
+      }
+      // 获取 ../ 后面的路径部分
+      const afterRefs = imagePath.replace(/^\.?\.?[\/\\]+/, '');
+      resolvedPath = newMdDir ? `${newMdDir}/${afterRefs}` : afterRefs;
+    } else if (mdDir && !imagePath.startsWith('/')) {
+      // 普通相对路径（如 ./images/xxx.png 或 images/xxx.png），基于 mdDir
+      resolvedPath = `${mdDir}/${cleanImagePath}`;
+    }
+
+    const apiPath = `/api/image/${resolvedPath}`;
     return `![${alt}](${apiPath})`;
   });
 }
