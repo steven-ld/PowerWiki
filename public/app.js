@@ -1,3 +1,8 @@
+// 路径编码函数：保留 / 不编码，只编码路径中的其他特殊字符
+function encodePath(path) {
+  return path.split('/').map(part => encodeURIComponent(part)).join('/');
+}
+
 // 全局状态
 let postsTree = {};
 let postsFlat = [];
@@ -720,7 +725,7 @@ function renderPostsTree(tree) {
       if (path) {
         loadPost(path);
         // 更新 URL
-        window.history.pushState({ path }, '', `/post/${encodeURIComponent(path)}`);
+        window.history.pushState({ path }, '', `/post/${encodePath(path)}`);
         // 更新活动状态（清除所有文件和文件夹的选中状态）
         postList.querySelectorAll('.nav-item-file').forEach(i => i.classList.remove('active'));
         postList.querySelectorAll('.nav-dir').forEach(d => d.classList.remove('active'));
@@ -748,7 +753,7 @@ function renderPostsTree(tree) {
       // 如果有 README，且不是当前已加载的文章，才加载
       if (readmePath && (!currentPost || currentPost.path !== readmePath)) {
         loadPost(readmePath);
-        window.history.pushState({ path: readmePath }, '', `/post/${encodeURIComponent(readmePath)}`);
+        window.history.pushState({ path: readmePath }, '', `/post/${encodePath(readmePath)}`);
 
         // 高亮当前目录
         postList.querySelectorAll('.nav-item-file').forEach(i => i.classList.remove('active'));
@@ -926,7 +931,7 @@ async function loadPost(filePath) {
       return;
     }
 
-    const response = await fetch(`/api/post/${encodeURIComponent(filePath)}`);
+    const response = await fetch(`/api/post/${encodePath(filePath)}`);
     if (!response.ok) {
       throw new Error('文章不存在');
     }
@@ -981,7 +986,7 @@ function renderPost(post) {
 
   if (fileType === 'pdf') {
     // PDF 文件：渲染成图片，无任何控件
-    const pdfUrl = `/api/pdf/${encodeURIComponent(filePath)}`;
+    const pdfUrl = `/api/pdf/${encodePath(filePath)}`;
     postBody.innerHTML = `<div class="pdf-pages" id="pdfPages"></div>`;
 
     // 加载并渲染 PDF
@@ -1106,7 +1111,7 @@ function renderPost(post) {
   homeView.classList.remove('active');
 
   // 更新 SEO meta 标签（文章页）
-  const articleUrl = `${window.location.origin}/post/${encodeURIComponent(post.path)}`;
+  const articleUrl = `${window.location.origin}/post/${encodePath(post.path)}`;
   const articleTitle = `${post.title} - ${siteConfig?.siteTitle || 'PowerWiki'}`;
   const articleDescription = post.description || post.title || 'PowerWiki 文章';
 
@@ -1170,7 +1175,7 @@ function renderPost(post) {
 // 后台更新文章（用于更新访问量等可能变化的数据）
 async function updatePostInBackground(filePath) {
   try {
-    const response = await fetch(`/api/post/${encodeURIComponent(filePath)}`);
+    const response = await fetch(`/api/post/${encodePath(filePath)}`);
     if (response.ok) {
       const post = await response.json();
 
