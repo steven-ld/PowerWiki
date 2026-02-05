@@ -9,7 +9,7 @@ function getGitManager(config) {
   return new GitManager(config.gitRepo, config.repoBranch, env.GIT_CACHE_DIR);
 }
 
-router.get('/*', async (req, res) => {
+router.get('/pdf/*', async (req, res) => {
   try {
     const config = req.app.get('config');
     let filePath = req.params[0];

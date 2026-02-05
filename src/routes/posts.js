@@ -188,7 +188,7 @@ router.get('/post/*', async (req, res) => {
       res.json(result);
     } else {
       const content = await gitManager.readMarkdownFile(filePath);
-      const parsed = parseMarkdown(content);
+      const parsed = parseMarkdown(content, filePath);
       const fileInfo = await gitManager.getFileInfo(filePath);
 
       const fileName = fileInfo.name.replace(/\.(md|markdown)$/i, '');

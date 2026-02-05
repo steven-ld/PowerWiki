@@ -56,18 +56,7 @@ function saveStats(stats) {
   }
 }
 
-/**
- * 记录访问日志
- * @param {string} path - 访问路径
- * @param {string} userAgent - 用户代理
- * @param {string} ip - IP地址
- */
-function logAccess(path, userAgent, ip) {
-  try {
-    const logEntry = {
-      timestamp: new Date().toISOString(),
-      path,
-      userAgent,
+// 中间件配置
       ip
     };
     
@@ -82,14 +71,6 @@ function logAccess(path, userAgent, ip) {
     // 只保留最近1000条记录
     if (logs.length > 1000) {
       logs = logs.slice(-1000);
-    }
-    
-    fs.writeFileSync(accessLogFilePath, JSON.stringify(logs, null, 2));
-  } catch (error) {
-    console.error(t('stats.saveLogFailed') + ':', error);
-  }
-}
-
 // 中间件配置
 app.use(compression());
 app.use(express.json());
@@ -192,31 +173,18 @@ async function initializeRepo() {
   }
 }
 
-// 访问统计中间件
-app.use((req, res, next) => {
-  // 记录访问日志
-  const userAgent = req.get('User-Agent') || '';
-  const ip = req.ip || req.connection.remoteAddress || '';
-  logAccess(req.path, userAgent, ip);
-  
-  // 更新统计
-  const stats = readStats();
-  stats.totalViews++;
-  saveStats(stats);
-  
-  next();
-});
-
 // 路由配置
 app.use('/api', require('./routes/posts'));
 app.use('/api', require('./routes/stats'));
 app.use('/api', require('./routes/config'));
 app.use('/api', require('./routes/cache'));
 app.use('/api', require('./routes/pdf'));
+app.use('/api', require('./routes/image'));
 app.use('/sitemap.xml', require('./routes/sitemap'));
 app.use('/rss.xml', require('./routes/rss'));
+app.use('/stats', require('./routes/statsPage'));
 app.use('/', require('./routes/pages'));
-app.use('/', require('./routes/post'));
+app.use('/post', require('./routes/post'));
 
 // 错误处理中间件
 app.use((err, req, res, next) => {

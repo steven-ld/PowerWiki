@@ -56,6 +56,10 @@
   "error": {
     "getPostFailed": "获取文章失败",
     "postNotFound": "文章未找到",
-    "fileNotFound": "文件未找到"
+    "fileNotFound": "文件未找到",
+    "imageDecodeFailed": "图片路径解码失败",
+    "imageFileNotFound": "图片文件未找到",
+    "imageNotFound": "图片未找到",
+    "getImageFailed": "获取图片失败"
   }
 }

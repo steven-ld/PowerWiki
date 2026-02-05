@@ -130,9 +130,9 @@ function transformLocalImagePaths(markdown, filePath) {
 
   // 匹配 ![xxx](images/yyy.png) 或 ![xxx](./images/yyy.png) 或 ![xxx](../images/yyy.png)
   // 转换为 ![xxx](/api/image/路径/images/yyy.png)
-  return markdown.replace(/!\[([^\]]*)\]\((images[^)]*)\)/g, (match, alt, imagePath) => {
-    // 移除 imagePath 开头的 ./ 或 ./
-    const cleanImagePath = imagePath.replace(/^\.?\//, '');
+  return markdown.replace(/!\[([^\]]*)\]\((\.{0,2}\/?images[^)]*)\)/g, (match, alt, imagePath) => {
+    // 移除 imagePath 开头的 ./ 或 ../ 
+    const cleanImagePath = imagePath.replace(/^\.{0,2}\/?/, '');
     const apiPath = mdDir ? `/api/image/${mdDir}/${cleanImagePath}` : `/api/image/${cleanImagePath}`;
     return `![${alt}](${apiPath})`;
   });

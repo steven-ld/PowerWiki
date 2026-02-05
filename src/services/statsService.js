@@ -1,9 +1,10 @@
 const fs = require('fs-extra');
 const path = require('path');
 const { t } = require('../../config/i18n');
+const env = require('../../config/env');
 
-const statsFilePath = path.join(__dirname, '../../.stats.json');
-const accessLogFilePath = path.join(__dirname, '../../.access-log.json');
+const statsFilePath = path.join(env.DATA_DIR, '.stats.json');
+const accessLogFilePath = path.join(env.DATA_DIR, '.access-log.json');
 
 function readStats() {
   try {

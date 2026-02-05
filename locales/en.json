@@ -56,6 +56,10 @@
   "error": {
     "getPostFailed": "Failed to get post",
     "postNotFound": "Post not found",
-    "fileNotFound": "File not found"
+    "fileNotFound": "File not found",
+    "imageDecodeFailed": "Image path decode failed",
+    "imageFileNotFound": "Image file not found",
+    "imageNotFound": "Image not found",
+    "getImageFailed": "Failed to get image"
   }
 }
