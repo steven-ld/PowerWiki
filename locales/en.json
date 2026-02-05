@@ -52,5 +52,10 @@
     "readStatsFailed": "Failed to read statistics",
     "saveStatsFailed": "Failed to save statistics",
     "saveLogFailed": "Failed to save access log"
+  },
+  "error": {
+    "getPostFailed": "Failed to get post",
+    "postNotFound": "Post not found",
+    "fileNotFound": "File not found"
   }
 }

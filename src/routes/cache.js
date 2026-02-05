@@ -3,11 +3,11 @@ const router = express.Router();
 const cacheManager = require('../../utils/cacheManager');
 const { t } = require('../../config/i18n');
 
-router.get('/stats', (req, res) => {
+router.get('/cache/stats', (req, res) => {
   res.json(cacheManager.getStats());
 });
 
-router.post('/clear', (req, res) => {
+router.post('/cache/clear', (req, res) => {
   const { type, key } = req.body;
 
   if (type) {

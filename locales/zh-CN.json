@@ -52,5 +52,10 @@
     "readStatsFailed": "读取统计数据失败",
     "saveStatsFailed": "保存统计数据失败",
     "saveLogFailed": "记录访问日志失败"
+  },
+  "error": {
+    "getPostFailed": "获取文章失败",
+    "postNotFound": "文章未找到",
+    "fileNotFound": "文件未找到"
   }
 }

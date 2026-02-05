@@ -4,7 +4,7 @@ const cacheManager = require('../../utils/cacheManager');
 const { readStats, readAccessLog } = require('../services/statsService');
 const { t } = require('../../config/i18n');
 
-router.get('/', (req, res) => {
+router.get('/stats', (req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=30');
 
   const cached = cacheManager.get('stats');

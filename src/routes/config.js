@@ -1,4 +1,5 @@
 const express = require('express');
+const env = require("../../config/env");
 const router = express.Router();
 const cacheManager = require('../../utils/cacheManager');
 const { parseMarkdown } = require('../../utils/markdownParser');
@@ -8,10 +9,10 @@ const { t } = require('../../config/i18n');
 
 function getGitManager(config) {
   const GitManager = require('../../utils/gitManager');
-  return new GitManager(config.gitRepo, config.repoBranch, './.git-repos');
+  return new GitManager(config.gitRepo, config.repoBranch, env.GIT_CACHE_DIR);
 }
 
-router.get('/', async (req, res) => {
+router.get('/config', async (req, res) => {
   const config = req.app.get('config');
   const cached = cacheManager.get('config');
   if (cached) {

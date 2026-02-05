@@ -8,7 +8,8 @@ const { t } = require('../../config/i18n');
 
 function getGitManager(config) {
   const GitManager = require('../../utils/gitManager');
-  return new GitManager(config.gitRepo, config.repoBranch, './.git-repos');
+  const env = require('../../config/env');
+  return new GitManager(config.gitRepo, config.repoBranch, env.GIT_CACHE_DIR);
 }
 
 function buildDirectoryTree(files) {
@@ -123,7 +124,7 @@ function buildDirectoryTree(files) {
   return tree;
 }
 
-router.get('/', async (req, res) => {
+router.get('/posts', async (req, res) => {
   try {
     const config = req.app.get('config');
     const cached = cacheManager.get('posts');
@@ -146,7 +147,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/*', async (req, res) => {
+router.get('/post/*', async (req, res) => {
   try {
     const config = req.app.get('config');
     let filePath = req.params[0];

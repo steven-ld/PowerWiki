@@ -108,6 +108,9 @@ try {
   process.exit(1);
 }
 
+// 将配置设置到app中，供路由使用
+app.set('config', config);
+
 // Git 管理器
 const gitManager = new GitManager(
   config.gitRepo, 
@@ -153,6 +156,7 @@ async function initializeRepo() {
     
     if (result.updated || result.isNew !== undefined) {
       repoInitialized = true;
+      app.set('repoInitialized', true);  // 设置到app中供路由使用
       if (result.updated) {
         showProgress(t('git.initialized'));
       } else {
@@ -209,8 +213,8 @@ app.use('/api', require('./routes/stats'));
 app.use('/api', require('./routes/config'));
 app.use('/api', require('./routes/cache'));
 app.use('/api', require('./routes/pdf'));
-app.use('/api', require('./routes/sitemap'));
-app.use('/api', require('./routes/rss'));
+app.use('/sitemap.xml', require('./routes/sitemap'));
+app.use('/rss.xml', require('./routes/rss'));
 app.use('/', require('./routes/pages'));
 app.use('/', require('./routes/post'));
 
