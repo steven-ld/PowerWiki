@@ -50,18 +50,18 @@
   --text-disabled: #4e5158;
   --text-active: #ffffff;
 
-  --bg-body: #0a0a0a;
-  --bg-container: #111111;
-  --bg-hover: #1a1a1a;
+  --bg-body: #1a1a1a;
+  --bg-container: #222222;
+  --bg-hover: #2a2a2a;
   --bg-active: rgba(51, 112, 255, 0.25);
 
-  --border-default: #2a2a2a;
-  --border-light: #1f1f1f;
+  --border-default: #3a3a3a;
+  --border-light: #2f2f2f;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
 
-  --code-bg: #0d0d0d;
+  --code-bg: #1d1d1d;
   --code-inline-bg: rgba(51, 112, 255, 0.15);
   --code-inline-color: #7eb7ff;
 }
