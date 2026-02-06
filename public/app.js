@@ -10,7 +10,8 @@ const ThemeManager = {
   init() {
     const savedTheme = localStorage.getItem(this.STORAGE_KEY) || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    this.updateToggleIcon(savedTheme);
+    // 延迟更新图标，确保 DOM 已加载
+    setTimeout(() => this.updateToggleIcon(savedTheme), 0);
   },
   
   setTheme(theme) {
