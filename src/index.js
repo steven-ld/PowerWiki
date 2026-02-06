@@ -14,7 +14,8 @@ const path = require('path');
 const fs = require('fs-extra');
 
 const env = require('./config/env');
-const { t } = require('./config/i18n');
+const i18n = require('./config/i18n');
+const { t } = i18n;
 const GitManager = require('./utils/gitManager');
 const { parseMarkdown } = require('./utils/markdownParser');
 const cacheManager = require('./utils/cacheManager');
@@ -32,6 +33,141 @@ const accessLogFilePath = path.join(env.DATA_DIR, '.access-log.json');
 // 中间件
 app.use(compression());
 app.use(express.json());
+
+// 首页路由必须在 static 中间件之前定义，否则会被 static 拦截
+const indexHtmlPath = path.join(__dirname, '..', 'public', 'index.html');
+
+// 获取翻译的辅助函数
+function getFrontendTranslations() {
+  const lang = i18n.getLang();
+  const langFile = path.join(__dirname, '..', 'locales', `${lang}.json`);
+
+  // 尝试加载指定语言的翻译
+  if (fs.existsSync(langFile)) {
+    try {
+      return JSON.parse(fs.readFileSync(langFile, 'utf8'));
+    } catch (e) {
+      // 静默失败
+    }
+  }
+
+  // 回退到 zh-CN
+  const fallbackFile = path.join(__dirname, '..', 'locales', 'zh-CN.json');
+  if (fs.existsSync(fallbackFile)) {
+    try {
+      return JSON.parse(fs.readFileSync(fallbackFile, 'utf8'));
+    } catch (e) {
+      // 静默失败
+    }
+  }
+
+  return {};
+}
+
+app.get('/', async (req, res) => {
+  const userAgent = req.get('user-agent') || '';
+  const isBot = /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|sogou|exabot|facebot|ia_archiver/i.test(userAgent);
+
+  // 获取前端翻译
+  const translations = getFrontendTranslations();
+  const lang = i18n.getLang();
+
+  if (isBot) {
+    // SSR 模式：返回完整渲染的 HTML
+    try {
+      const headerTemplate = readTemplate('header');
+      const footerTemplate = readTemplate('footer');
+      const homeTemplate = readTemplate('home');
+      const stats = require('./routes/api').readStats(statsFilePath);
+      const homePagePath = config.pages.home || '';
+
+      let homeContent = null;
+      if (homePagePath) {
+        try {
+          const content = await gitManager.readMarkdownFile(homePagePath);
+          const parsed = parseMarkdown(content, homePagePath);
+          homeContent = {
+            html: parsed.html,
+            title: parsed.title || '首页',
+            path: homePagePath
+          };
+        } catch (error) {
+          // 静默失败
+        }
+      }
+
+      const headerData = {
+        siteTitle: config.siteTitle || config.title,
+        siteDescription: config.siteDescription || config.description,
+        aboutPath: config.pages.about ? `/post/${encodeURIComponent(config.pages.about)}` : '/post/README.md'
+      };
+
+      const footerData = {
+        currentYear: new Date().getFullYear(),
+        siteTitle: config.siteTitle || config.title,
+        totalViews: stats.totalViews || 0,
+        totalPosts: stats.postViews ? Object.keys(stats.postViews).length : 0,
+        footerCopyright: config.footer?.copyright || `© ${new Date().getFullYear()} ${config.siteTitle || config.title}`,
+        footerPoweredBy: config.footer?.poweredBy || 'Powered by <a href="https://github.com/steven-ld/PowerWiki.git" target="_blank" rel="noopener">PowerWiki</a>'
+      };
+
+      const homeData = {
+        siteTitle: config.siteTitle || config.title,
+        siteDescription: config.siteDescription || config.description
+      };
+
+      const html = `<!DOCTYPE html>
+<html lang="${lang === 'en' ? 'en' : 'zh-CN'}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${config.siteTitle || 'PowerWiki'} - ${config.siteDescription || '知识库'}</title>
+    <meta name="description" content="${config.siteDescription || 'PowerWiki - 一个现代化的知识库系统'}">
+    <meta name="keywords" content="知识库,文档,Markdown,Wiki">
+    <link rel="canonical" href="${config.siteUrl || `${req.protocol}://${req.get('host')}`}">
+    <link rel="alternate" type="application/rss+xml" title="${config.siteTitle || 'PowerWiki'} RSS Feed" href="${config.siteUrl || `${req.protocol}://${req.get('host')}`}/rss.xml">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <div id="siteHeader">${renderTemplate(headerTemplate, headerData)}</div>
+        <main class="main-content">
+            <div id="homeView" class="view active">
+                ${renderTemplate(homeTemplate, homeData)}
+                ${homeContent ? `<div id="homeContent">${homeContent.html}</div>` : ''}
+            </div>
+        </main>
+        <div id="siteFooter">${renderTemplate(footerTemplate, footerData)}</div>
+    </div>
+</body>
+</html>`;
+
+      res.send(html);
+      return;
+    } catch (error) {
+      console.error(`❌ ${t('error.ssrRenderFailed')}:`, error);
+    }
+  }
+
+  // 非爬虫：读取 index.html 并注入翻译
+  try {
+    let html = fs.readFileSync(indexHtmlPath, 'utf-8');
+
+    // 注入翻译数据到 HTML
+    const translationsScript = `<script>window.__I18N__ = ${JSON.stringify(translations)};</script>`;
+    html = html.replace(/(\s*)<\/head>/i, `${translationsScript}$1</head>`);
+
+    // 注入语言属性
+    html = html.replace(/lang="zh-CN"/, `lang="${lang === 'en' ? 'en' : 'zh-CN'}"`);
+
+    res.send(html);
+  } catch (error) {
+    console.error('[i18n] 注入翻译失败:', error);
+    res.sendFile(indexHtmlPath);
+  }
+});
+
+// 静态文件中间件（放在首页路由之后）
 app.use(express.static('public'));
 app.use('/pdfjs', express.static(path.join(__dirname, '..', 'node_modules', 'pdfjs-dist')));
 
@@ -309,90 +445,6 @@ Sitemap: ${baseUrl}/sitemap.xml
 `;
   res.setHeader('Content-Type', 'text/plain');
   res.send(robotsTxt);
-});
-
-// 首页 - 支持 SSR
-app.get('/', async (req, res) => {
-  const userAgent = req.get('user-agent') || '';
-  const isBot = /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|sogou|exabot|facebot|ia_archiver/i.test(userAgent);
-
-  if (isBot) {
-    try {
-      const headerTemplate = readTemplate('header');
-      const footerTemplate = readTemplate('footer');
-      const homeTemplate = readTemplate('home');
-      const stats = require('./routes/api').readStats(statsFilePath);
-      const homePagePath = config.pages.home || '';
-
-      let homeContent = null;
-      if (homePagePath) {
-        try {
-          const content = await gitManager.readMarkdownFile(homePagePath);
-          const parsed = parseMarkdown(content, homePagePath);
-          homeContent = {
-            html: parsed.html,
-            title: parsed.title || '首页',
-            path: homePagePath
-          };
-        } catch (error) {
-          // 静默失败
-        }
-      }
-
-      const headerData = {
-        siteTitle: config.siteTitle || config.title,
-        siteDescription: config.siteDescription || config.description,
-        aboutPath: config.pages.about ? `/post/${encodeURIComponent(config.pages.about)}` : '/post/README.md'
-      };
-
-      const footerData = {
-        currentYear: new Date().getFullYear(),
-        siteTitle: config.siteTitle || config.title,
-        totalViews: stats.totalViews || 0,
-        totalPosts: stats.postViews ? Object.keys(stats.postViews).length : 0,
-        footerCopyright: config.footer?.copyright || `© ${new Date().getFullYear()} ${config.siteTitle || config.title}`,
-        footerPoweredBy: config.footer?.poweredBy || 'Powered by <a href="https://github.com/steven-ld/PowerWiki.git" target="_blank" rel="noopener">PowerWiki</a>'
-      };
-
-      const homeData = {
-        siteTitle: config.siteTitle || config.title,
-        siteDescription: config.siteDescription || config.description
-      };
-
-      const html = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${config.siteTitle || 'PowerWiki'} - ${config.siteDescription || '知识库'}</title>
-    <meta name="description" content="${config.siteDescription || 'PowerWiki - 一个现代化的知识库系统'}">
-    <meta name="keywords" content="知识库,文档,Markdown,Wiki">
-    <link rel="canonical" href="${config.siteUrl || `${req.protocol}://${req.get('host')}`}">
-    <link rel="alternate" type="application/rss+xml" title="${config.siteTitle || 'PowerWiki'} RSS Feed" href="${config.siteUrl || `${req.protocol}://${req.get('host')}`}/rss.xml">
-    <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-    <div class="app-container">
-        <div id="siteHeader">${renderTemplate(headerTemplate, headerData)}</div>
-        <main class="main-content">
-            <div id="homeView" class="view active">
-                ${renderTemplate(homeTemplate, homeData)}
-                ${homeContent ? `<div id="homeContent">${homeContent.html}</div>` : ''}
-            </div>
-        </main>
-        <div id="siteFooter">${renderTemplate(footerTemplate, footerData)}</div>
-    </div>
-</body>
-</html>`;
-
-      res.send(html);
-      return;
-    } catch (error) {
-      console.error(`❌ ${t('error.ssrRenderFailed')}:`, error);
-    }
-  }
-
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
 // 文章详情页 - 支持 SSR

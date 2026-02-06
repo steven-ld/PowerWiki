@@ -59,15 +59,15 @@
                     <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5"/>
                     <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                 </svg>
-                <input type="text" id="searchInput" placeholder="搜索文档..." />
+                <input type="text" id="searchInput" data-i18n-placeholder="client.searchDocs" />
             </div>
             
             <div class="sidebar-actions">
-                <button class="collapse-all-btn" id="collapseAllBtn" title="收起所有目录">
+                <button class="collapse-all-btn" id="collapseAllBtn" data-i18n-title="client.collapseDirs">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                         <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
-                    <span>收起</span>
+                    <span data-i18n="client.collapseAll"></span>
                 </button>
             </div>
             
@@ -124,8 +124,8 @@
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M2 3h12M2 6.5h8M2 10h10M2 13.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                 </svg>
-                <span>目录</span>
-                <button class="toc-toggle-btn" id="tocToggleBtn" title="收起目录">
+                <span data-i18n="client.tocTitle">目录</span>
+                <button class="toc-toggle-btn" id="tocToggleBtn" data-i18n-title="client.collapseToc">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                         <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
@@ -133,16 +133,16 @@
             </div>
             <nav class="toc-nav" id="tocNav"></nav>
         </aside>
-        
+
         <!-- 展开目录按钮（收起时显示） -->
-        <button class="toc-expand-btn" id="tocExpandBtn" title="展开目录">
+        <button class="toc-expand-btn" id="tocExpandBtn" data-i18n-title="client.expandToc">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M2 3h12M2 6.5h8M2 10h10M2 13.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
         </button>
-        
+
         <!-- 返回顶部按钮 -->
-        <button class="back-to-top-btn" id="backToTopBtn" title="返回顶部">
+        <button class="back-to-top-btn" id="backToTopBtn" data-i18n-title="client.backToTop">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M10 15V5M10 5l-5 5M10 5l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
