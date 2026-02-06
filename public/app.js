@@ -6,12 +6,26 @@ function encodePath(path) {
 // 主题管理
 const ThemeManager = {
   STORAGE_KEY: 'powerwiki_theme',
+  MANUAL_KEY: 'powerwiki_theme_manual',
   
   init() {
-    const savedTheme = localStorage.getItem(this.STORAGE_KEY) || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    // 延迟更新图标，确保 DOM 已加载
-    setTimeout(() => this.updateToggleIcon(savedTheme), 0);
+    const isManual = localStorage.getItem(this.MANUAL_KEY) === 'true';
+    let theme;
+    
+    if (isManual) {
+      theme = localStorage.getItem(this.STORAGE_KEY) || 'light';
+    } else {
+      theme = this.getAutoTheme();
+      localStorage.setItem(this.STORAGE_KEY, theme);
+    }
+    
+    document.documentElement.setAttribute('data-theme', theme);
+    setTimeout(() => this.updateToggleIcon(theme), 0);
+  },
+  
+  getAutoTheme() {
+    const hour = new Date().getHours();
+    return (hour >= 22 || hour < 5) ? 'dark' : 'light';
   },
   
   setTheme(theme) {
@@ -24,6 +38,7 @@ const ThemeManager = {
     const current = document.documentElement.getAttribute('data-theme') || 'light';
     const next = current === 'light' ? 'dark' : 'light';
     this.setTheme(next);
+    localStorage.setItem(this.MANUAL_KEY, 'true');
   },
   
   updateToggleIcon(theme) {
