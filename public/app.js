@@ -42,7 +42,17 @@ const ThemeManager = {
       mermaid.initialize({
         startOnLoad: false,
         theme: theme === 'dark' ? 'dark' : 'default',
-        securityLevel: 'loose'
+        securityLevel: 'loose',
+        themeVariables: theme === 'dark' ? {
+          darkMode: true,
+          background: '#f5f5f5',
+          primaryColor: '#e3e3e3',
+          primaryTextColor: '#1a1a1a',
+          primaryBorderColor: '#999',
+          lineColor: '#666',
+          secondaryColor: '#d4d4d4',
+          tertiaryColor: '#e8e8e8'
+        } : {}
       });
       // 重新渲染当前页面上的 Mermaid 图表
       const mermaidEls = document.querySelectorAll('.mermaid[data-mermaid-source]');
@@ -84,7 +94,17 @@ if (typeof mermaid !== 'undefined') {
   mermaid.initialize({
     startOnLoad: false,
     theme: isDark ? 'dark' : 'default',
-    securityLevel: 'loose'
+    securityLevel: 'loose',
+    themeVariables: isDark ? {
+      darkMode: true,
+      background: '#f5f5f5',
+      primaryColor: '#e3e3e3',
+      primaryTextColor: '#1a1a1a',
+      primaryBorderColor: '#999',
+      lineColor: '#666',
+      secondaryColor: '#d4d4d4',
+      tertiaryColor: '#e8e8e8'
+    } : {}
   });
 }
 
