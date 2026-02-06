@@ -961,6 +961,16 @@ body {
   height: auto;
 }
 
+/* 暗黑模式下 Mermaid 使用浅色背景 */
+[data-theme="dark"] .markdown-body .mermaid {
+  background: #d8d8d8;
+  border-radius: 8px;
+}
+
+[data-theme="dark"] .markdown-body .mermaid svg {
+  background: #d8d8d8;
+}
+
 .markdown-body blockquote {
   padding: 16px 20px;
   margin: 20px 0;
