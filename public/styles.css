@@ -963,12 +963,19 @@ body {
 
 /* 暗黑模式下 Mermaid 使用浅色背景 */
 [data-theme="dark"] .markdown-body .mermaid {
-  background: #d8d8d8;
+  background: #d8d8d8 !important;
   border-radius: 8px;
 }
 
 [data-theme="dark"] .markdown-body .mermaid svg {
-  background: #d8d8d8;
+  background: #d8d8d8 !important;
+}
+
+/* 强制覆盖 Mermaid SVG 内部的背景 */
+[data-theme="dark"] .markdown-body .mermaid svg > rect[fill="#ffffff"],
+[data-theme="dark"] .markdown-body .mermaid svg > rect[fill="white"],
+[data-theme="dark"] .markdown-body .mermaid svg > rect.background {
+  fill: #d8d8d8 !important;
 }
 
 .markdown-body blockquote {
