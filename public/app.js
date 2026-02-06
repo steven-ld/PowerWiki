@@ -9,7 +9,8 @@ const ThemeManager = {
   
   init() {
     const savedTheme = localStorage.getItem(this.STORAGE_KEY) || 'light';
-    this.setTheme(savedTheme);
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    this.updateToggleIcon(savedTheme);
   },
   
   setTheme(theme) {
