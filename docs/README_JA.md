@@ -8,7 +8,7 @@
 
 Git ベースのマークダウン Wiki システム。自動同期、構文ハイライト、Feishu スタイルの UI をサポート。
 
-**🔗 オンラインデモ: [https://ga666666.cn](https://ga666666.cn)**
+**🔗 オンラインデモ: [https://powerwiki.ga666666.cn](https://powerwiki.ga666666.cn)**
 
 [English](README.md) • [中文](README_ZH.md) • [日本語](README_JA.md) • [한국어](docs/README_KO.md) • [Español](docs/README_ES.md) • [Français](docs/README_FR.md) • [Deutsch](docs/README_DE.md) • [Русский](docs/README_RU.md)
 

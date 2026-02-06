@@ -8,7 +8,7 @@
 
 Git 기반 마크다운 위키 시스템. 자동 동기화, 구문 하이라이팅, Feishu 스타일 UI 지원.
 
-**🔗 온라인 데모: [https://ga666666.cn](https://ga666666.cn)**
+**🔗 온라인 데모: [https://powerwiki.ga666666.cn](https://powerwiki.ga666666.cn)**
 
 [English](README.md) • [中文](README_ZH.md) • [日本語](docs/README_JA.md) • [한국어](README_KO.md) • [Español](docs/README_ES.md) • [Français](docs/README_FR.md) • [Deutsch](docs/README_DE.md) • [Русский](docs/README_RU.md)
 

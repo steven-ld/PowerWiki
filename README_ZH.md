@@ -8,7 +8,7 @@
 
 一个现代化的基于 Git 仓库的 Markdown 知识库系统，支持自动同步、代码高亮、飞书风格 UI。
 
-**🔗 在线演示: [https://ga666666.cn](https://ga666666.cn)**
+**🔗 在线演示: [https://powerwiki.ga666666.cn](https://powerwiki.ga666666.cn)**
 
 [English](README.md) • [中文](README_ZH.md) • [日本語](docs/README_JA.md) • [한국어](docs/README_KO.md) • [Español](docs/README_ES.md) • [Français](docs/README_FR.md) • [Deutsch](docs/README_DE.md) • [Русский](docs/README_RU.md)
 

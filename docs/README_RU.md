@@ -8,7 +8,7 @@
 
 Современная Git-based вики-система с поддержкой Markdown, автоматической синхронизацией, подсветкой синтаксиса и интерфейсом в стиле Feishu.
 
-**🔗 Онлайн-демо: [https://ga666666.cn](https://ga666666.cn)**
+**🔗 Онлайн-демо: [https://powerwiki.ga666666.cn](https://powerwiki.ga666666.cn)**
 
 [English](README.md) • [中文](README_ZH.md) • [日本語](docs/README_JA.md) • [한국어](docs/README_KO.md) • [Español](docs/README_ES.md) • [Français](docs/README_FR.md) • [Deutsch](docs/README_DE.md) • [Русский](README_RU.md)
 

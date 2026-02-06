@@ -8,7 +8,7 @@
 
 Un système Wiki moderne basé sur Git avec Markdown, support de la synchronisation automatique, coloration syntaxique et interface style Feishu.
 
-**🔗 Démo en direct: [https://ga666666.cn](https://ga666666.cn)**
+**🔗 Démo en direct: [https://powerwiki.ga666666.cn](https://powerwiki.ga666666.cn)**
 
 [English](README.md) • [中文](README_ZH.md) • [日本語](docs/README_JA.md) • [한국어](docs/README_KO.md) • [Español](docs/README_ES.md) • [Français](README_FR.md) • [Deutsch](docs/README_DE.md) • [Русский](docs/README_RU.md)
 
