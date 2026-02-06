@@ -294,7 +294,7 @@ body {
   flex-shrink: 0;
 }
 
-.nav-dir.expanded .nav-dir-toggle {
+.nav-dir.expanded > .nav-dir-header > .nav-dir-toggle {
   transform: rotate(90deg);
 }
 
