@@ -974,7 +974,18 @@ body {
 /* 强制覆盖 Mermaid SVG 内部的背景 */
 [data-theme="dark"] .markdown-body .mermaid svg > rect[fill="#ffffff"],
 [data-theme="dark"] .markdown-body .mermaid svg > rect[fill="white"],
-[data-theme="dark"] .markdown-body .mermaid svg > rect.background {
+[data-theme="dark"] .markdown-body .mermaid svg > rect.background,
+[data-theme="dark"] .markdown-body .mermaid svg rect[class*="background"] {
+  fill: #d8d8d8 !important;
+}
+
+/* 覆盖所有可能的黑色背景 */
+[data-theme="dark"] .markdown-body .mermaid svg rect[fill="#000000"],
+[data-theme="dark"] .markdown-body .mermaid svg rect[fill="#000"],
+[data-theme="dark"] .markdown-body .mermaid svg rect[fill="black"],
+[data-theme="dark"] .markdown-body .mermaid svg path[fill="#000000"],
+[data-theme="dark"] .markdown-body .mermaid svg path[fill="#000"],
+[data-theme="dark"] .markdown-body .mermaid svg path[fill="black"] {
   fill: #d8d8d8 !important;
 }
 
