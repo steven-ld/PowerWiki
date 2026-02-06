@@ -48,6 +48,7 @@
   --text-secondary: #8f959e;
   --text-placeholder: #9ca3af;
   --text-disabled: #4e5158;
+  --text-active: #ffffff;
   
   --bg-body: #1e1e1e;
   --bg-container: #252526;
@@ -63,6 +64,12 @@
   --code-bg: #1a1a1a;
   --code-inline-bg: rgba(51, 112, 255, 0.15);
   --code-inline-color: #7eb7ff;
+}
+
+[data-theme="dark"] .nav-item-file.active,
+[data-theme="dark"] .nav-dir.active > .nav-dir-header .nav-dir-name,
+[data-theme="dark"] .toc-nav a.active {
+  color: var(--text-active);
 }
 
 body {
