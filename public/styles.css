@@ -961,6 +961,12 @@ body {
   height: auto;
 }
 
+/* 暗黑模式下 Mermaid 使用纯白背景 */
+[data-theme="dark"] .markdown-body .mermaid {
+  background: #ffffff;
+  border-radius: 8px;
+}
+
 .markdown-body blockquote {
   padding: 16px 20px;
   margin: 20px 0;
