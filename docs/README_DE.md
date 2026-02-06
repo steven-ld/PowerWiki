@@ -120,7 +120,52 @@ Besuchen Sie `http://localhost:3150` in Ihrem Browser.
 
 ## Docker-Deployment
 
-### Schnellstart mit Docker Compose
+### Offizielles Docker-Image
+
+Das offizielle Docker-Image von PowerWiki wird von **[@sayunchuan](https://github.com/sayunchuan)** gepflegt.
+
+- **Image**: `sayunchuan/powerwiki`
+- **Docker Hub**: [sayunchuan/powerwiki](https://hub.docker.com/r/sayunchuan/powerwiki)
+- **Tags**: `latest`, `1.4.5`, `20260207`
+
+### Schnellstart
+
+```bash
+# Einfachste Methode
+docker run -d -p 3150:3150 sayunchuan/powerwiki
+
+# Mit benutzerdefinierter Konfiguration
+docker run -d \
+  --name powerwiki \
+  -p 3150:3150 \
+  -v $(pwd)/config.json:/app/config.json:ro \
+  -v powerwiki_data:/app/data \
+  -v powerwiki_cache:/app/cache \
+  sayunchuan/powerwiki
+```
+
+### Deployment mit Docker Compose
+
+```yaml
+version: '3.8'
+services:
+  powerwiki:
+    image: sayunchuan/powerwiki:latest
+    ports:
+      - "3150:3150"
+    environment:
+      - NODE_ENV=production
+      - LANG=de
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - powerwiki_data:/app/data
+      - powerwiki_cache:/app/cache
+    restart: unless-stopped
+
+volumes:
+  powerwiki_data:
+  powerwiki_cache:
+```
 
 ```bash
 # Dienste starten
@@ -133,26 +178,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### Produktions-Deployment
-
-```yaml
-version: '3.8'
-services:
-  powerwiki:
-    image: powerwiki:latest
-    ports:
-      - "3150:3150"
-    environment:
-      - NODE_ENV=production
-      - DATA_DIR=/app/data
-      - GIT_CACHE_DIR=/app/cache
-      - LANG=de
-    volumes:
-      - ./config.json:/app/config.json:ro
-      - powerwiki_data:/app/data
-      - powerwiki_cache:/app/cache
-    restart: unless-stopped
-```
+**Danksagung**: Vielen Dank an [@sayunchuan](https://github.com/sayunchuan) für die Bereitstellung und Pflege des offiziellen Docker-Images, wodurch die Bereitstellung von PowerWiki bequemer wird.
 
 ## Artikelorganisation
 

@@ -120,7 +120,52 @@ npm start
 
 ## Docker デプロイ
 
-### Docker Compose でクイックスタート
+### 公式 Docker イメージ
+
+PowerWiki の公式 Docker イメージは **[@sayunchuan](https://github.com/sayunchuan)** によって維持されています。
+
+- **イメージ名**: `sayunchuan/powerwiki`
+- **Docker Hub**: [sayunchuan/powerwiki](https://hub.docker.com/r/sayunchuan/powerwiki)
+- **バージョンタグ**: `latest`, `1.4.5`, `20260207`
+
+### クイックスタート
+
+```bash
+# 最も簡単な方法
+docker run -d -p 3150:3150 sayunchuan/powerwiki
+
+# カスタム設定を使用
+docker run -d \
+  --name powerwiki \
+  -p 3150:3150 \
+  -v $(pwd)/config.json:/app/config.json:ro \
+  -v powerwiki_data:/app/data \
+  -v powerwiki_cache:/app/cache \
+  sayunchuan/powerwiki
+```
+
+### Docker Compose デプロイ
+
+```yaml
+version: '3.8'
+services:
+  powerwiki:
+    image: sayunchuan/powerwiki:latest
+    ports:
+      - "3150:3150"
+    environment:
+      - NODE_ENV=production
+      - LANG=ja
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - powerwiki_data:/app/data
+      - powerwiki_cache:/app/cache
+    restart: unless-stopped
+
+volumes:
+  powerwiki_data:
+  powerwiki_cache:
+```
 
 ```bash
 # サービスを開始
@@ -133,26 +178,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### 本番環境デプロイ
-
-```yaml
-version: '3.8'
-services:
-  powerwiki:
-    image: powerwiki:latest
-    ports:
-      - "3150:3150"
-    environment:
-      - NODE_ENV=production
-      - DATA_DIR=/app/data
-      - GIT_CACHE_DIR=/app/cache
-      - LANG=ja
-    volumes:
-      - ./config.json:/app/config.json:ro
-      - powerwiki_data:/app/data
-      - powerwiki_cache:/app/cache
-    restart: unless-stopped
-```
+**謝辞**: [@sayunchuan](https://github.com/sayunchuan) 氏に感謝します。PowerWiki コミュニティに公式 Docker イメージを提供・維持していただき、ユーザーがより便利に PowerWiki をデプロイできるようになりました。
 
 ## 記事の整理
 

@@ -120,7 +120,52 @@ npm start
 
 ## Docker 배포
 
-### Docker Compose로 빠른 시작
+### 공식 Docker 이미지
+
+PowerWiki의 공식 Docker 이미지는 **[@sayunchuan](https://github.com/sayunchuan)** 에 의해 유지됩니다.
+
+- **이미지 이름**: `sayunchuan/powerwiki`
+- **Docker Hub**: [sayunchuan/powerwiki](https://hub.docker.com/r/sayunchuan/powerwiki)
+- **버전 태그**: `latest`, `1.4.5`, `20260207`
+
+### 빠른 시작
+
+```bash
+# 가장 간단한 방법
+docker run -d -p 3150:3150 sayunchuan/powerwiki
+
+# 사용자 정의 설정 사용
+docker run -d \
+  --name powerwiki \
+  -p 3150:3150 \
+  -v $(pwd)/config.json:/app/config.json:ro \
+  -v powerwiki_data:/app/data \
+  -v powerwiki_cache:/app/cache \
+  sayunchuan/powerwiki
+```
+
+### Docker Compose 배포
+
+```yaml
+version: '3.8'
+services:
+  powerwiki:
+    image: sayunchuan/powerwiki:latest
+    ports:
+      - "3150:3150"
+    environment:
+      - NODE_ENV=production
+      - LANG=ko
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - powerwiki_data:/app/data
+      - powerwiki_cache:/app/cache
+    restart: unless-stopped
+
+volumes:
+  powerwiki_data:
+  powerwiki_cache:
+```
 
 ```bash
 # 서비스 시작
@@ -133,26 +178,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### 프로덕션 배포
-
-```yaml
-version: '3.8'
-services:
-  powerwiki:
-    image: powerwiki:latest
-    ports:
-      - "3150:3150"
-    environment:
-      - NODE_ENV=production
-      - DATA_DIR=/app/data
-      - GIT_CACHE_DIR=/app/cache
-      - LANG=ko
-    volumes:
-      - ./config.json:/app/config.json:ro
-      - powerwiki_data:/app/data
-      - powerwiki_cache:/app/cache
-    restart: unless-stopped
-```
+**감사의 말**: [@sayunchuan](https://github.com/sayunchuan) 님께 감사드립니다. PowerWiki 커뮤니티에 공식 Docker 이미지를 제공하고 유지 관리하여 사용자가 더 편리하게 PowerWiki를 배포할 수 있게 되었습니다.
 
 ## 기사 구성
 

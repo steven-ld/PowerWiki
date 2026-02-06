@@ -119,7 +119,52 @@ npm start```
 
 ## Docker-развёртывание
 
-### Быстрый старт с Docker Compose
+### Официальный Docker-образ
+
+Официальный Docker-образ PowerWiki поддерживается **[@sayunchuan](https://github.com/sayunchuan)**.
+
+- **Образ**: `sayunchuan/powerwiki`
+- **Docker Hub**: [sayunchuan/powerwiki](https://hub.docker.com/r/sayunchuan/powerwiki)
+- **Теги**: `latest`, `1.4.5`, `20260207`
+
+### Быстрый старт
+
+```bash
+# Самый простой способ
+docker run -d -p 3150:3150 sayunchuan/powerwiki
+
+# С пользовательской конфигурацией
+docker run -d \
+  --name powerwiki \
+  -p 3150:3150 \
+  -v $(pwd)/config.json:/app/config.json:ro \
+  -v powerwiki_data:/app/data \
+  -v powerwiki_cache:/app/cache \
+  sayunchuan/powerwiki
+```
+
+### Развёртывание с Docker Compose
+
+```yaml
+version: '3.8'
+services:
+  powerwiki:
+    image: sayunchuan/powerwiki:latest
+    ports:
+      - "3150:3150"
+    environment:
+      - NODE_ENV=production
+      - LANG=ru
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - powerwiki_data:/app/data
+      - powerwiki_cache:/app/cache
+    restart: unless-stopped
+
+volumes:
+  powerwiki_data:
+  powerwiki_cache:
+```
 
 ```bash
 # Запустить сервисы
@@ -132,26 +177,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### Продакшн-развёртывание
-
-```yaml
-version: '3.8'
-services:
-  powerwiki:
-    image: powerwiki:latest
-    ports:
-      - "3150:3150"
-    environment:
-      - NODE_ENV=production
-      - DATA_DIR=/app/data
-      - GIT_CACHE_DIR=/app/cache
-      - LANG=ru
-    volumes:
-      - ./config.json:/app/config.json:ro
-      - powerwiki_data:/app/data
-      - powerwiki_cache:/app/cache
-    restart: unless-stopped
-```
+**Благодарность**: Спасибо [@sayunchuan](https://github.com/sayunchuan) за предоставление и поддержку официального Docker-образа, что делает развёртывание PowerWiki более удобным.
 
 ## Организация статей
 

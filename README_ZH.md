@@ -153,7 +153,52 @@ LANG=zh-CN
 
 ## 🐳 Docker 部署
 
-### 使用 Docker Compose 快速启动
+### 官方 Docker 镜像
+
+PowerWiki 的官方 Docker 镜像由 **[@sayunchuan](https://github.com/sayunchuan)** 维护。
+
+- **镜像名称**: `sayunchuan/powerwiki`
+- **Docker Hub**: [sayunchuan/powerwiki](https://hub.docker.com/r/sayunchuan/powerwiki)
+- **版本标签**: `latest`, `1.4.5`, `20260207`
+
+### 快速启动
+
+```bash
+# 最简单的方式
+docker run -d -p 3150:3150 sayunchuan/powerwiki
+
+# 使用自定义配置
+docker run -d \
+  --name powerwiki \
+  -p 3150:3150 \
+  -v $(pwd)/config.json:/app/config.json:ro \
+  -v powerwiki_data:/app/data \
+  -v powerwiki_cache:/app/cache \
+  sayunchuan/powerwiki
+```
+
+### Docker Compose 部署
+
+```yaml
+version: '3.8'
+services:
+  powerwiki:
+    image: sayunchuan/powerwiki:latest
+    ports:
+      - "3150:3150"
+    environment:
+      - NODE_ENV=production
+      - LANG=zh-CN
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - powerwiki_data:/app/data
+      - powerwiki_cache:/app/cache
+    restart: unless-stopped
+
+volumes:
+  powerwiki_data:
+  powerwiki_cache:
+```
 
 ```bash
 # 启动服务
@@ -166,43 +211,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### 手动 Docker 命令
-
-```bash
-# 构建镜像
-docker build -t powerwiki .
-
-# 运行容器
-docker run -d \
-  --name powerwiki \
-  -p 3150:3150 \
-  -v $(pwd)/config.json:/app/config.json:ro \
-  -v powerwiki_data:/app/data \
-  -v powerwiki_cache:/app/cache \
-  -e LANG=zh-CN \
-  powerwiki
-```
-
-### 生产环境部署
-
-```yaml
-version: '3.8'
-services:
-  powerwiki:
-    image: powerwiki:latest
-    ports:
-      - "3150:3150"
-    environment:
-      - NODE_ENV=production
-      - DATA_DIR=/app/data
-      - GIT_CACHE_DIR=/app/cache
-      - LANG=zh-CN
-    volumes:
-      - ./config.json:/app/config.json:ro
-      - powerwiki_data:/app/data
-      - powerwiki_cache:/app/cache
-    restart: unless-stopped
-```
+**致谢**: 感谢 [@sayunchuan](https://github.com/sayunchuan) 为 PowerWiki 社区提供和维护官方 Docker 镜像，使得用户可以更便捷地部署 PowerWiki。
 
 ## 📂 文章组织
 
