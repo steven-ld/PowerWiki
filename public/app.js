@@ -58,8 +58,10 @@ const ThemeManager = {
       const mermaidEls = document.querySelectorAll('.mermaid[data-mermaid-source]');
       if (mermaidEls.length > 0) {
         mermaidEls.forEach(el => {
+          // 完全清空并重置
           el.removeAttribute('data-processed');
-          el.innerHTML = el.getAttribute('data-mermaid-source');
+          el.innerHTML = '';
+          el.textContent = el.getAttribute('data-mermaid-source');
         });
         try {
           mermaid.run({ nodes: mermaidEls });
