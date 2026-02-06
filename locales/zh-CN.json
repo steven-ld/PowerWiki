@@ -101,7 +101,9 @@
     "saturday": "周六"
   },
   "tip": {
-    "configNotFoundTip": "提示: 可以复制 config.example.json 为 config.json 并修改配置"
+    "configNotFoundTip": "提示: 可以复制 config.example.json 为 config.json 并修改配置",
+    "usingExampleConfig": "未找到 config.json，已自动使用示例配置文件",
+    "createCustomConfig": "请创建 config.json 文件以使用自定义配置"
   },
   "feed": {
     "skipArticle": "RSS: 跳过文章",

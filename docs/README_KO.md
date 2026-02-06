@@ -8,7 +8,7 @@
 
 Git 기반 마크다운 위키 시스템. 자동 동기화, 구문 하이라이팅, Feishu 스타일 UI 지원.
 
-**🔗 온라인 데모: [https://ga666666.cn](https://ga666666.cn)**
+**🔗 온라인 데모: [https://powerwiki.ga666666.cn](https://powerwiki.ga666666.cn)**
 
 [English](README.md) • [中文](README_ZH.md) • [日本語](docs/README_JA.md) • [한국어](README_KO.md) • [Español](docs/README_ES.md) • [Français](docs/README_FR.md) • [Deutsch](docs/README_DE.md) • [Русский](docs/README_RU.md)
 
@@ -120,7 +120,52 @@ npm start
 
 ## Docker 배포
 
-### Docker Compose로 빠른 시작
+### Docker 이미지
+
+**[@sayunchuan](https://github.com/sayunchuan)** 이 PowerWiki의 Docker 이미지를 제공합니다.
+
+- **이미지 이름**: `sayunchuan/powerwiki`
+- **Docker Hub**: [sayunchuan/powerwiki](https://hub.docker.com/r/sayunchuan/powerwiki)
+- **버전 태그**: `latest`, `1.4.5`, `20260207`
+
+### 빠른 시작
+
+```bash
+# 가장 간단한 방법
+docker run -d -p 3150:3150 sayunchuan/powerwiki
+
+# 사용자 정의 설정 사용
+docker run -d \
+  --name powerwiki \
+  -p 3150:3150 \
+  -v $(pwd)/config.json:/app/config.json:ro \
+  -v powerwiki_data:/app/data \
+  -v powerwiki_cache:/app/cache \
+  sayunchuan/powerwiki
+```
+
+### Docker Compose 배포
+
+```yaml
+version: '3.8'
+services:
+  powerwiki:
+    image: sayunchuan/powerwiki:latest
+    ports:
+      - "3150:3150"
+    environment:
+      - NODE_ENV=production
+      - LANG=ko
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - powerwiki_data:/app/data
+      - powerwiki_cache:/app/cache
+    restart: unless-stopped
+
+volumes:
+  powerwiki_data:
+  powerwiki_cache:
+```
 
 ```bash
 # 서비스 시작
@@ -133,26 +178,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### 프로덕션 배포
-
-```yaml
-version: '3.8'
-services:
-  powerwiki:
-    image: powerwiki:latest
-    ports:
-      - "3150:3150"
-    environment:
-      - NODE_ENV=production
-      - DATA_DIR=/app/data
-      - GIT_CACHE_DIR=/app/cache
-      - LANG=ko
-    volumes:
-      - ./config.json:/app/config.json:ro
-      - powerwiki_data:/app/data
-      - powerwiki_cache:/app/cache
-    restart: unless-stopped
-```
+**감사의 말**: [@sayunchuan](https://github.com/sayunchuan) 님께 감사드립니다. PowerWiki의 Docker 이미지를 제공하여 배포가 더욱 편리해졌습니다.
 
 ## 기사 구성
 

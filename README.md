@@ -8,7 +8,7 @@
 
 A modern Git-based Markdown wiki system with auto-sync, syntax highlighting, and Feishu-style UI.
 
-**🔗 Live Demo: [https://ga666666.cn](https://ga666666.cn)**
+**🔗 Live Demo: [https://powerwiki.ga666666.cn](https://powerwiki.ga666666.cn)**
 
 [English](README.md) • [中文](README_ZH.md) • [日本語](docs/README_JA.md) • [한국어](docs/README_KO.md) • [Español](docs/README_ES.md) • [Français](docs/README_FR.md) • [Deutsch](docs/README_DE.md) • [Русский](docs/README_RU.md)
 
@@ -153,7 +153,52 @@ Copy `.env.example` to `.env` and customize as needed.
 
 ## 🐳 Docker Deployment
 
-### Quick Start with Docker Compose
+### Docker Image
+
+**[@sayunchuan](https://github.com/sayunchuan)** provides a Docker image for PowerWiki.
+
+- **Image**: `sayunchuan/powerwiki`
+- **Docker Hub**: [sayunchuan/powerwiki](https://hub.docker.com/r/sayunchuan/powerwiki)
+- **Tags**: `latest`, `1.4.5`, `20260207`
+
+### Quick Start
+
+```bash
+# Simplest way
+docker run -d -p 3150:3150 sayunchuan/powerwiki
+
+# With custom config
+docker run -d \
+  --name powerwiki \
+  -p 3150:3150 \
+  -v $(pwd)/config.json:/app/config.json:ro \
+  -v powerwiki_data:/app/data \
+  -v powerwiki_cache:/app/cache \
+  sayunchuan/powerwiki
+```
+
+### Docker Compose
+
+```yaml
+version: '3.8'
+services:
+  powerwiki:
+    image: sayunchuan/powerwiki:latest
+    ports:
+      - "3150:3150"
+    environment:
+      - NODE_ENV=production
+      - LANG=zh-CN
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - powerwiki_data:/app/data
+      - powerwiki_cache:/app/cache
+    restart: unless-stopped
+
+volumes:
+  powerwiki_data:
+  powerwiki_cache:
+```
 
 ```bash
 # Start services
@@ -166,43 +211,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### Manual Docker Commands
-
-```bash
-# Build image
-docker build -t powerwiki .
-
-# Run container
-docker run -d \
-  --name powerwiki \
-  -p 3150:3150 \
-  -v $(pwd)/config.json:/app/config.json:ro \
-  -v powerwiki_data:/app/data \
-  -v powerwiki_cache:/app/cache \
-  -e LANG=zh-CN \
-  powerwiki
-```
-
-### Production Deployment
-
-```yaml
-version: '3.8'
-services:
-  powerwiki:
-    image: powerwiki:latest
-    ports:
-      - "3150:3150"
-    environment:
-      - NODE_ENV=production
-      - DATA_DIR=/app/data
-      - GIT_CACHE_DIR=/app/cache
-      - LANG=zh-CN
-    volumes:
-      - ./config.json:/app/config.json:ro
-      - powerwiki_data:/app/data
-      - powerwiki_cache:/app/cache
-    restart: unless-stopped
-```
+**Acknowledgment**: Thanks to [@sayunchuan](https://github.com/sayunchuan) for providing the Docker image, making PowerWiki deployment more convenient.
 
 ## 📂 Article Organization
 

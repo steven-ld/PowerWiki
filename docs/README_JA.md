@@ -8,7 +8,7 @@
 
 Git ベースのマークダウン Wiki システム。自動同期、構文ハイライト、Feishu スタイルの UI をサポート。
 
-**🔗 オンラインデモ: [https://ga666666.cn](https://ga666666.cn)**
+**🔗 オンラインデモ: [https://powerwiki.ga666666.cn](https://powerwiki.ga666666.cn)**
 
 [English](README.md) • [中文](README_ZH.md) • [日本語](README_JA.md) • [한국어](docs/README_KO.md) • [Español](docs/README_ES.md) • [Français](docs/README_FR.md) • [Deutsch](docs/README_DE.md) • [Русский](docs/README_RU.md)
 
@@ -120,7 +120,52 @@ npm start
 
 ## Docker デプロイ
 
-### Docker Compose でクイックスタート
+### Docker イメージ
+
+**[@sayunchuan](https://github.com/sayunchuan)** が PowerWiki の Docker イメージを提供しています。
+
+- **イメージ名**: `sayunchuan/powerwiki`
+- **Docker Hub**: [sayunchuan/powerwiki](https://hub.docker.com/r/sayunchuan/powerwiki)
+- **バージョンタグ**: `latest`, `1.4.5`, `20260207`
+
+### クイックスタート
+
+```bash
+# 最も簡単な方法
+docker run -d -p 3150:3150 sayunchuan/powerwiki
+
+# カスタム設定を使用
+docker run -d \
+  --name powerwiki \
+  -p 3150:3150 \
+  -v $(pwd)/config.json:/app/config.json:ro \
+  -v powerwiki_data:/app/data \
+  -v powerwiki_cache:/app/cache \
+  sayunchuan/powerwiki
+```
+
+### Docker Compose デプロイ
+
+```yaml
+version: '3.8'
+services:
+  powerwiki:
+    image: sayunchuan/powerwiki:latest
+    ports:
+      - "3150:3150"
+    environment:
+      - NODE_ENV=production
+      - LANG=ja
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - powerwiki_data:/app/data
+      - powerwiki_cache:/app/cache
+    restart: unless-stopped
+
+volumes:
+  powerwiki_data:
+  powerwiki_cache:
+```
 
 ```bash
 # サービスを開始
@@ -133,26 +178,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### 本番環境デプロイ
-
-```yaml
-version: '3.8'
-services:
-  powerwiki:
-    image: powerwiki:latest
-    ports:
-      - "3150:3150"
-    environment:
-      - NODE_ENV=production
-      - DATA_DIR=/app/data
-      - GIT_CACHE_DIR=/app/cache
-      - LANG=ja
-    volumes:
-      - ./config.json:/app/config.json:ro
-      - powerwiki_data:/app/data
-      - powerwiki_cache:/app/cache
-    restart: unless-stopped
-```
+**謝辞**: [@sayunchuan](https://github.com/sayunchuan) 氏に感謝します。PowerWiki の Docker イメージを提供していただき、デプロイがより便利になりました。
 
 ## 記事の整理
 

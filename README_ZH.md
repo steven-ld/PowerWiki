@@ -8,7 +8,7 @@
 
 一个现代化的基于 Git 仓库的 Markdown 知识库系统，支持自动同步、代码高亮、飞书风格 UI。
 
-**🔗 在线演示: [https://ga666666.cn](https://ga666666.cn)**
+**🔗 在线演示: [https://powerwiki.ga666666.cn](https://powerwiki.ga666666.cn)**
 
 [English](README.md) • [中文](README_ZH.md) • [日本語](docs/README_JA.md) • [한국어](docs/README_KO.md) • [Español](docs/README_ES.md) • [Français](docs/README_FR.md) • [Deutsch](docs/README_DE.md) • [Русский](docs/README_RU.md)
 
@@ -153,7 +153,52 @@ LANG=zh-CN
 
 ## 🐳 Docker 部署
 
-### 使用 Docker Compose 快速启动
+### Docker 镜像
+
+**[@sayunchuan](https://github.com/sayunchuan)** 为 PowerWiki 提供了 Docker 镜像。
+
+- **镜像名称**: `sayunchuan/powerwiki`
+- **Docker Hub**: [sayunchuan/powerwiki](https://hub.docker.com/r/sayunchuan/powerwiki)
+- **版本标签**: `latest`, `1.4.5`, `20260207`
+
+### 快速启动
+
+```bash
+# 最简单的方式
+docker run -d -p 3150:3150 sayunchuan/powerwiki
+
+# 使用自定义配置
+docker run -d \
+  --name powerwiki \
+  -p 3150:3150 \
+  -v $(pwd)/config.json:/app/config.json:ro \
+  -v powerwiki_data:/app/data \
+  -v powerwiki_cache:/app/cache \
+  sayunchuan/powerwiki
+```
+
+### Docker Compose 部署
+
+```yaml
+version: '3.8'
+services:
+  powerwiki:
+    image: sayunchuan/powerwiki:latest
+    ports:
+      - "3150:3150"
+    environment:
+      - NODE_ENV=production
+      - LANG=zh-CN
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - powerwiki_data:/app/data
+      - powerwiki_cache:/app/cache
+    restart: unless-stopped
+
+volumes:
+  powerwiki_data:
+  powerwiki_cache:
+```
 
 ```bash
 # 启动服务
@@ -166,43 +211,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### 手动 Docker 命令
-
-```bash
-# 构建镜像
-docker build -t powerwiki .
-
-# 运行容器
-docker run -d \
-  --name powerwiki \
-  -p 3150:3150 \
-  -v $(pwd)/config.json:/app/config.json:ro \
-  -v powerwiki_data:/app/data \
-  -v powerwiki_cache:/app/cache \
-  -e LANG=zh-CN \
-  powerwiki
-```
-
-### 生产环境部署
-
-```yaml
-version: '3.8'
-services:
-  powerwiki:
-    image: powerwiki:latest
-    ports:
-      - "3150:3150"
-    environment:
-      - NODE_ENV=production
-      - DATA_DIR=/app/data
-      - GIT_CACHE_DIR=/app/cache
-      - LANG=zh-CN
-    volumes:
-      - ./config.json:/app/config.json:ro
-      - powerwiki_data:/app/data
-      - powerwiki_cache:/app/cache
-    restart: unless-stopped
-```
+**致谢**: 感谢 [@sayunchuan](https://github.com/sayunchuan) 为 PowerWiki 提供 Docker 镜像，使得部署更加便捷。
 
 ## 📂 文章组织
 

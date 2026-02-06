@@ -223,9 +223,22 @@ try {
   config.pages.home = config.pages.home || '';
   config.pages.about = config.pages.about || '';
 } catch (error) {
-  console.error(`❌ ${t('error.configNotFound')}`);
-  console.error(`💡 ${t('tip.configNotFoundTip')}`);
-  process.exit(1);
+  // 配置文件不存在，尝试加载示例配置
+  const exampleConfigPath = path.join(__dirname, '..', 'config.example.json');
+  
+  try {
+    config = require(exampleConfigPath);
+    console.warn(`⚠️  ${t('tip.usingExampleConfig')}`);
+    console.warn(`💡 ${t('tip.createCustomConfig')}`);
+    
+    config.pages = config.pages || {};
+    config.pages.home = config.pages.home || '';
+    config.pages.about = config.pages.about || '';
+  } catch (exampleError) {
+    console.error(`❌ ${t('error.configNotFound')}`);
+    console.error(`💡 ${t('tip.configNotFoundTip')}`);
+    process.exit(1);
+  }
 }
 
 // 初始化 GitManager

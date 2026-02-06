@@ -8,7 +8,7 @@
 
 Ein modernes Git-basiertes Markdown-Wiki-System mit automatischer Synchronisierung, Syntax-Highlighting und Feishu-UI.
 
-**🔗 Live-Demo: [https://ga666666.cn](https://ga666666.cn)**
+**🔗 Live-Demo: [https://powerwiki.ga666666.cn](https://powerwiki.ga666666.cn)**
 
 [English](README.md) • [中文](README_ZH.md) • [日本語](docs/README_JA.md) • [한국어](docs/README_KO.md) • [Español](docs/README_ES.md) • [Français](docs/README_FR.md) • [Deutsch](README_DE.md) • [Русский](docs/README_RU.md)
 
@@ -120,7 +120,52 @@ Besuchen Sie `http://localhost:3150` in Ihrem Browser.
 
 ## Docker-Deployment
 
-### Schnellstart mit Docker Compose
+### Docker-Image
+
+**[@sayunchuan](https://github.com/sayunchuan)** stellt ein Docker-Image für PowerWiki bereit.
+
+- **Image**: `sayunchuan/powerwiki`
+- **Docker Hub**: [sayunchuan/powerwiki](https://hub.docker.com/r/sayunchuan/powerwiki)
+- **Tags**: `latest`, `1.4.5`, `20260207`
+
+### Schnellstart
+
+```bash
+# Einfachste Methode
+docker run -d -p 3150:3150 sayunchuan/powerwiki
+
+# Mit benutzerdefinierter Konfiguration
+docker run -d \
+  --name powerwiki \
+  -p 3150:3150 \
+  -v $(pwd)/config.json:/app/config.json:ro \
+  -v powerwiki_data:/app/data \
+  -v powerwiki_cache:/app/cache \
+  sayunchuan/powerwiki
+```
+
+### Deployment mit Docker Compose
+
+```yaml
+version: '3.8'
+services:
+  powerwiki:
+    image: sayunchuan/powerwiki:latest
+    ports:
+      - "3150:3150"
+    environment:
+      - NODE_ENV=production
+      - LANG=de
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - powerwiki_data:/app/data
+      - powerwiki_cache:/app/cache
+    restart: unless-stopped
+
+volumes:
+  powerwiki_data:
+  powerwiki_cache:
+```
 
 ```bash
 # Dienste starten
@@ -133,26 +178,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### Produktions-Deployment
-
-```yaml
-version: '3.8'
-services:
-  powerwiki:
-    image: powerwiki:latest
-    ports:
-      - "3150:3150"
-    environment:
-      - NODE_ENV=production
-      - DATA_DIR=/app/data
-      - GIT_CACHE_DIR=/app/cache
-      - LANG=de
-    volumes:
-      - ./config.json:/app/config.json:ro
-      - powerwiki_data:/app/data
-      - powerwiki_cache:/app/cache
-    restart: unless-stopped
-```
+**Danksagung**: Vielen Dank an [@sayunchuan](https://github.com/sayunchuan) für die Bereitstellung des Docker-Images, wodurch die Bereitstellung von PowerWiki bequemer wird.
 
 ## Artikelorganisation
 

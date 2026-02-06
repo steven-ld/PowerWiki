@@ -101,7 +101,9 @@
     "saturday": "Sat"
   },
   "tip": {
-    "configNotFoundTip": "Tip: You can copy config.example.json to config.json and modify the configuration"
+    "configNotFoundTip": "Tip: You can copy config.example.json to config.json and modify the configuration",
+    "usingExampleConfig": "config.json not found, using example config",
+    "createCustomConfig": "Please create config.json for custom configuration"
   },
   "feed": {
     "skipArticle": "RSS: Skipping article",
