@@ -43,12 +43,12 @@
   --primary-light: rgba(51, 112, 255, 0.15);
   --primary-hover: #5a8fff;
 
-  --text-title: #e8eaed;
-  --text-body: #c4c6cc;
-  --text-secondary: #8f959e;
-  --text-placeholder: #6b6d71;
-  --text-disabled: #4e5158;
-  --text-active: #ffffff;
+  --text-title: #d8dadd;
+  --text-body: #b4b6bc;
+  --text-secondary: #7f858e;
+  --text-placeholder: #5b5d61;
+  --text-disabled: #3e4048;
+  --text-active: #f0f0f0;
 
   --bg-body: #1a1a1a;
   --bg-container: #222222;
