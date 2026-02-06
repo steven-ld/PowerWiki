@@ -977,12 +977,19 @@ body {
   fill: #d8d8d8 !important;
 }
 
-/* 保留边框和线条的颜色 */
+/* 保留边框和线条，但调整为深色以便在浅色背景下可见 */
 [data-theme="dark"] .markdown-body .mermaid svg path[stroke]:not([fill]),
 [data-theme="dark"] .markdown-body .mermaid svg line,
 [data-theme="dark"] .markdown-body .mermaid svg polyline,
 [data-theme="dark"] .markdown-body .mermaid svg polygon[stroke] {
   fill: none !important;
+  stroke: #333 !important;
+}
+
+/* 调整边框颜色 */
+[data-theme="dark"] .markdown-body .mermaid svg rect[stroke],
+[data-theme="dark"] .markdown-body .mermaid svg path[stroke][fill] {
+  stroke: #333 !important;
 }
 
 .markdown-body blockquote {
