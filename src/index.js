@@ -228,10 +228,8 @@ try {
   
   try {
     config = require(exampleConfigPath);
-    console.warn('⚠️  警告: 未找到 config.json，已自动使用示例配置文件');
-    console.warn('⚠️  Warning: config.json not found, using example config');
-    console.warn(`💡 提示: 请创建 config.json 文件以使用自定义配置`);
-    console.warn(`💡 Tip: Please create config.json for custom configuration`);
+    console.warn(`⚠️  ${t('tip.usingExampleConfig')}`);
+    console.warn(`💡 ${t('tip.createCustomConfig')}`);
     
     config.pages = config.pages || {};
     config.pages.home = config.pages.home || '';
