@@ -13,6 +13,10 @@ const hljs = require('highlight.js');
 const { t } = require('../config/i18n');
 
 const highlightCode = function(code, lang) {
+  // Mermaid 代码块不做高亮，留给前端渲染为图表
+  if (lang === 'mermaid') {
+    return code;
+  }
   if (lang && hljs.getLanguage(lang)) {
     try {
       return hljs.highlight(code, { language: lang }).value;

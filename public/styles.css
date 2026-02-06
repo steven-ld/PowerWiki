@@ -948,6 +948,19 @@ body {
   line-height: 1;
 }
 
+/* Mermaid 图表样式 */
+.markdown-body .mermaid {
+  text-align: center;
+  margin: 20px 0;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.markdown-body .mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .markdown-body blockquote {
   padding: 16px 20px;
   margin: 20px 0;
