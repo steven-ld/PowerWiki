@@ -37,31 +37,31 @@
   --code-inline-color: #476582;
 }
 
-/* 暗夜模式 */
+/* 暗夜模式 - 更黑的背景 */
 [data-theme="dark"] {
   --primary: #3370ff;
   --primary-light: rgba(51, 112, 255, 0.15);
   --primary-hover: #5a8fff;
-  
+
   --text-title: #e8eaed;
   --text-body: #c4c6cc;
   --text-secondary: #8f959e;
-  --text-placeholder: #9ca3af;
+  --text-placeholder: #6b6d71;
   --text-disabled: #4e5158;
   --text-active: #ffffff;
-  
-  --bg-body: #1e1e1e;
-  --bg-container: #252526;
-  --bg-hover: #2d2d30;
+
+  --bg-body: #0a0a0a;
+  --bg-container: #111111;
+  --bg-hover: #1a1a1a;
   --bg-active: rgba(51, 112, 255, 0.25);
-  
-  --border-default: #3e3e42;
-  --border-light: #333337;
-  
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
-  
-  --code-bg: #1a1a1a;
+
+  --border-default: #2a2a2a;
+  --border-light: #1f1f1f;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+
+  --code-bg: #0d0d0d;
   --code-inline-bg: rgba(51, 112, 255, 0.15);
   --code-inline-color: #7eb7ff;
 }
