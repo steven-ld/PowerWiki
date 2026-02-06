@@ -93,9 +93,21 @@ const i18n = {
   locale: document.documentElement.lang || 'zh-CN',
   translations: {},
 
-  init() {
-    // 从 window.__I18N__ 获取翻译
-    this.translations = window.__I18N__ || {};
+  async init() {
+    // 优先从 window.__I18N__ 获取翻译（首页注入）
+    if (window.__I18N__ && Object.keys(window.__I18N__).length > 0) {
+      this.translations = window.__I18N__;
+      return;
+    }
+    
+    // 否则从 API 获取翻译（其他页面）
+    try {
+      const response = await fetch('/api/i18n');
+      this.translations = await response.json();
+    } catch (error) {
+      console.error('Failed to load translations:', error);
+      this.translations = {};
+    }
   },
 
   t(key) {
@@ -329,7 +341,7 @@ const sidebarOverlay = document.getElementById('sidebarOverlay');
 // 初始化
 document.addEventListener('DOMContentLoaded', async () => {
   ThemeManager.init(); // 初始化主题
-  i18n.init(); // 初始化国际化（同步）
+  await i18n.init(); // 初始化国际化（异步）
   i18n.initElements(); // 初始化页面元素的翻译
   loadConfig();
   await loadPosts(); // 等待文章列表加载完成
