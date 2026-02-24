@@ -245,6 +245,25 @@ PowerWiki/
 ├── locales/                 # 번역 파일
 ├── templates/               # HTML 템플릿
 ├── public/                  # 정적 자산
+│   ├── index.html          # 프론트엔드 HTML
+│   ├── app.js             # 메인 엔트리 (모듈식)
+│   ├── js/                # JavaScript 모듈
+│   │   ├── theme.js       # 테마 관리
+│   │   ├── i18n.js        # 국제화
+│   │   ├── cache.js       # 클라이언트 캐싱
+│   │   ├── utils.js       # 유틸리티
+│   │   ├── posts.js       # 게시물 목록 및 트리
+│   │   ├── article.js     # 기사 렌더링
+│   │   ├── toc.js         # 목차 생성
+│   │   └── media.js       # 코드 복사, 이미지 뷰어, PDF
+│   └── css/               # CSS 모듈
+│       ├── base.css       # 기본 스타일 및 변수
+│       ├── layout.css     # 레이아웃
+│       ├── sidebar.css    # 내비게이션 메뉴
+│       ├── article.css    # 기사 및 마크다운
+│       ├── toc.css        # 오른쪽 목차 바
+│       ├── media.css      # 반응형 설계
+│       └── components.css # UI 컴포넌트
 ├── config.example.json      # 설정 템플릿
 └── package.json             # 종속성
 ```

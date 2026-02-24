@@ -1,0 +1,156 @@
+/* ========== 右侧目录栏 ========== */
+.toc-sidebar {
+  width: var(--toc-width);
+  background-color: var(--bg-body);
+  display: none;
+  flex-direction: column;
+  position: fixed;
+  right: 0;
+  top: var(--header-height);
+  height: calc(100vh - var(--header-height) - var(--footer-height));
+  overflow: hidden;
+  border-left: 1px solid var(--border-light);
+  z-index: 99;
+  transition: transform 0.2s;
+}
+
+.toc-sidebar.collapsed {
+  transform: translateX(var(--toc-width));
+}
+
+.toc-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+.toc-header svg {
+  color: var(--text-placeholder);
+}
+
+.toc-header span {
+  flex: 1;
+}
+
+.toc-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-placeholder);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.toc-toggle-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-body);
+}
+
+.toc-toggle-btn svg {
+  transition: transform 0.2s;
+}
+
+.toc-sidebar.collapsed .toc-toggle-btn svg {
+  transform: rotate(180deg);
+}
+
+/* 展开按钮 */
+.toc-expand-btn {
+  display: none;
+  position: fixed;
+  right: 0;
+  top: calc(var(--header-height) + 60px);
+  width: 28px;
+  height: 40px;
+  background: var(--bg-body);
+  border: 1px solid var(--border-light);
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  cursor: pointer;
+  z-index: 98;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-placeholder);
+  transition: all 0.15s;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.06);
+}
+
+.toc-expand-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-body);
+}
+
+.toc-expand-btn.show {
+  display: flex;
+}
+
+.toc-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  font-size: 13px;
+}
+
+.toc-nav ul {
+  list-style: none;
+}
+
+.toc-nav a {
+  display: block;
+  padding: 6px 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.15s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toc-nav a:hover {
+  background: var(--bg-hover);
+  color: var(--text-body);
+}
+
+.toc-nav a.active {
+  background: var(--bg-active);
+  color: var(--primary);
+}
+
+.toc-nav .toc-h2 a { padding-left: 12px; }
+.toc-nav .toc-h3 a { padding-left: 24px; font-size: 12px; }
+.toc-nav .toc-h4 a { padding-left: 36px; font-size: 12px; }
+
+/* 目录栏滚动条 */
+.toc-sidebar::-webkit-scrollbar,
+.toc-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.toc-sidebar::-webkit-scrollbar-track,
+.toc-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.toc-sidebar::-webkit-scrollbar-thumb,
+.toc-nav::-webkit-scrollbar-thumb {
+  background: var(--text-disabled);
+  border-radius: 2px;
+}
+
+.toc-sidebar::-webkit-scrollbar-thumb:hover,
+.toc-nav::-webkit-scrollbar-thumb:hover {
+  background: var(--text-placeholder);
+}

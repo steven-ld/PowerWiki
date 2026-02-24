@@ -421,8 +421,24 @@ PowerWiki/
 │   └── home.html            # 首页模板
 ├── public/                  # 静态资源
 │   ├── index.html           # 前端页面
-│   ├── styles.css           # 样式文件
-│   └── app.js               # 前端逻辑
+│   ├── app.js               # 主入口（模块化）
+│   ├── js/                  # JavaScript 模块
+│   │   ├── theme.js         # 主题管理
+│   │   ├── i18n.js          # 国际化
+│   │   ├── cache.js         # 客户端缓存
+│   │   ├── utils.js         # 工具函数
+│   │   ├── posts.js         # 文章列表与目录树
+│   │   ├── article.js       # 文章渲染
+│   │   ├── toc.js           # 目录生成
+│   │   └── media.js         # 代码复制、图片灯箱、PDF
+│   └── css/                 # CSS 模块
+│       ├── base.css         # 基础样式与变量
+│       ├── layout.css       # 布局（侧边栏、头部）
+│       ├── sidebar.css      # 导航菜单
+│       ├── article.css      # 文章与 Markdown
+│       ├── toc.css          # 右侧目录栏
+│       ├── media.css        # 响应式适配
+│       └── components.css   # UI 组件
 ├── config.example.json      # 配置模板
 ├── package.json             # 项目依赖
 ├── Dockerfile               # Docker 配置
