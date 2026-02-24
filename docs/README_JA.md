@@ -245,6 +245,25 @@ PowerWiki/
 ├── locales/                 # 翻訳ファイル
 ├── templates/               # HTML テンプレート
 ├── public/                  # 静的アセット
+│   ├── index.html          # フロントエンド HTML
+│   ├── app.js             # メインエントリ（モジュラー）
+│   ├── js/                # JavaScript モジュール
+│   │   ├── theme.js       # テーマ管理
+│   │   ├── i18n.js        # 国際化
+│   │   ├── cache.js       # クライアントキャッシュ
+│   │   ├── utils.js       # ユーティリティ
+│   │   ├── posts.js       # 投稿リストとツリー
+│   │   ├── article.js     #記事レンダリング
+│   │   ├── toc.js         # 目次生成
+│   │   └── media.js       # コードコピー、画像ビューア、PDF
+│   └── css/               # CSS モジュール
+│       ├── base.css       # ベーススタイルと変数
+│       ├── layout.css     # レイアウト
+│       ├── sidebar.css    # ナビゲーションメニュー
+│       ├── article.css    # 記事と Markdown
+│       ├── toc.css        # 右側目次バー
+│       ├── media.css      # レスポンシブ対応
+│       └── components.css # UI コンポーネント
 ├── config.example.json      # 設定テンプレート
 └── package.json             # 依存関係
 ```

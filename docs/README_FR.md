@@ -245,6 +245,25 @@ PowerWiki/
 ├── locales/                 # Fichiers de traduction
 ├── templates/               # Modèles HTML
 ├── public/                  # Actifs statiques
+│   ├── index.html          # HTML Frontend
+│   ├── app.js             # Point d'entrée principal (modulaire)
+│   ├── js/                # Modules JavaScript
+│   │   ├── theme.js       # Gestion des thèmes
+│   │   ├── i18n.js        # Internationalisation
+│   │   ├── cache.js       # Cache client
+│   │   ├── utils.js       # Utilitaires
+│   │   ├── posts.js       # Liste des articles & arborescence
+│   │   ├── article.js     # Rendu des articles
+│   │   ├── toc.js         # Génération de la table des matières
+│   │   └── media.js       # Copie de code, visionneuse d'images, PDF
+│   └── css/               # Modules CSS
+│       ├── base.css       # Styles de base & variables
+│       ├── layout.css     # Mise en page
+│       ├── sidebar.css    # Menu de navigation
+│       ├── article.css    # Articles & Markdown
+│       ├── toc.css        # Barre de table des matières droite
+│       ├── media.css      # Design réactif
+│       └── components.css # Composants UI
 ├── config.example.json      # Modèle de configuration
 └── package.json             # Dépendances
 ```
