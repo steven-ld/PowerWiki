@@ -421,8 +421,24 @@ PowerWiki/
 │   └── home.html            # Home template
 ├── public/                  # Static assets
 │   ├── index.html           # Frontend HTML
-│   ├── styles.css           # Styles
-│   └── app.js               # Frontend JS
+│   ├── app.js               # Main entry (modular)
+│   ├── js/                  # JavaScript modules
+│   │   ├── theme.js         # Theme management
+│   │   ├── i18n.js         # Internationalization
+│   │   ├── cache.js         # Client caching
+│   │   ├── utils.js         # Utilities
+│   │   ├── posts.js         # Post list & tree
+│   │   ├── article.js       # Article rendering
+│   │   ├── toc.js           # Table of contents
+│   │   └── media.js         # Code copy, images, PDF
+│   └── css/                 # CSS modules
+│       ├── base.css         # Base styles & variables
+│       ├── layout.css       # Layout (sidebar, header)
+│       ├── sidebar.css      # Navigation menu
+│       ├── article.css      # Article & Markdown
+│       ├── toc.css          # Table of contents
+│       ├── media.css        # Responsive design
+│       └── components.css   # UI components
 ├── config.example.json      # Config template
 ├── package.json             # Dependencies
 ├── Dockerfile               # Docker configuration
