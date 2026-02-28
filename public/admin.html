@@ -251,6 +251,11 @@
             font-family: 'Courier New', monospace;
             font-size: 13px;
         }
+
+        .ip-location {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
         
         .badge {
             display: inline-block;
@@ -469,6 +474,7 @@
                             <thead>
                                 <tr>
                                     <th>IP地址</th>
+                                    <th>归属地</th>
                                     <th>访问次数</th>
                                     <th>访问文章数</th>
                                     <th>首次访问</th>
@@ -477,7 +483,7 @@
                             </thead>
                             <tbody id="ipTableBody">
                                 <tr>
-                                    <td colspan="5" class="loading">Loading...</td>
+                                    <td colspan="6" class="loading">Loading...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -522,13 +528,14 @@
                                 <tr>
                                     <th>时间</th>
                                     <th>IP地址</th>
+                                    <th>归属地</th>
                                     <th>文章路径</th>
                                     <th>浏览器</th>
                                 </tr>
                             </thead>
                             <tbody id="logTableBody">
                                 <tr>
-                                    <td colspan="4" class="loading">Loading...</td>
+                                    <td colspan="5" class="loading">Loading...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -630,6 +637,7 @@
                 postStats: '📄 文章访问统计（Top 10）',
                 recentLogs: '🕐 最近访问记录',
                 ipAddress: 'IP地址',
+                location: '归属地',
                 visitCount: '访问次数',
                 postCount: '访问文章数',
                 firstVisit: '首次访问',
@@ -673,6 +681,7 @@
                 postStats: '📄 Post Access Statistics (Top 10)',
                 recentLogs: '🕐 Recent Access Logs',
                 ipAddress: 'IP Address',
+                location: 'Location',
                 visitCount: 'Visit Count',
                 postCount: 'Posts Visited',
                 firstVisit: 'First Visit',
@@ -1150,19 +1159,136 @@
         function renderIPTable(data) {
             const tbody = document.getElementById('ipTableBody');
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="loading">${t('noData')}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="loading">${t('noData')}</td></tr>`;
                 return;
             }
-            
+
             tbody.innerHTML = data.map(ip => `
                 <tr>
                     <td class="ip-cell">${ip.ip}</td>
+                    <td class="ip-location" data-ip="${ip.ip}">${t('loading')}</td>
                     <td><span class="badge badge-primary">${ip.count}</span></td>
                     <td>${ip.posts}</td>
                     <td>${formatDateTime(ip.firstVisit)}</td>
                     <td>${formatDateTime(ip.lastVisit)}</td>
                 </tr>
             `).join('');
+
+            // 异步加载 IP 归属地
+            loadIpLocations(data.map(ip => ip.ip));
+        }
+
+        // IP 归属地缓存
+        const ipLocationCache = {
+            storageKey: 'powerwiki_ip_locations',
+            getCache() {
+                try {
+                    const cache = localStorage.getItem(this.storageKey);
+                    return cache ? JSON.parse(cache) : {};
+                } catch {
+                    return {};
+                }
+            },
+            setCache(data) {
+                try {
+                    localStorage.setItem(this.storageKey, JSON.stringify(data));
+                } catch {
+                    // 忽略存储错误
+                }
+            },
+            get(ip) {
+                const cache = this.getCache();
+                return cache[ip];
+            },
+            set(ip, location) {
+                const cache = this.getCache();
+                cache[ip] = location;
+                this.setCache(cache);
+            }
+        };
+
+        // 加载 IP 归属地
+        async function loadIpLocations(ips) {
+            // 过滤出需要查询的 IP（去重 + 未缓存的）
+            const uniqueIps = [...new Set(ips)];
+            const ipsToQuery = uniqueIps.filter(ip => !ipLocationCache.get(ip));
+
+            // 立即显示已缓存的归属地
+            uniqueIps.forEach(ip => {
+                const cached = ipLocationCache.get(ip);
+                if (cached) {
+                    updateIpLocationCell(ip, cached);
+                }
+            });
+
+            if (ipsToQuery.length === 0) return;
+
+            // 使用 ip-api.com 的免费 API，逐个查询
+            for (const ip of ipsToQuery) {
+                try {
+                    await querySingleIpApi(ip);
+                } catch (error) {
+                    console.error(`IP归属地查询失败 (${ip}):`, error);
+                    updateIpLocationCell(ip, t('unknown'));
+                }
+
+                // 免费 API 有请求频率限制，每秒最多 45 次
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+
+        // 使用 JSONP 查询单个 IP 的归属地
+        function querySingleIpApi(ip) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_callback_' + Math.random().toString(36).substr(2, 9);
+                const script = document.createElement('script');
+                script.src = `http://ip-api.com/json/${ip}?fields=status,message,country,regionName,city&callback=${callbackName}`;
+
+                window[callbackName] = (data) => {
+                    delete window[callbackName];
+                    if (document.body.contains(script)) {
+                        document.body.removeChild(script);
+                    }
+
+                    if (data.status === 'success') {
+                        const location = data.country ? `${data.country} ${data.regionName} ${data.city}` : t('unknown');
+                        ipLocationCache.set(ip, location);
+                        updateIpLocationCell(ip, location);
+                        resolve(data);
+                    } else {
+                        reject(new Error(data.message || 'Query failed'));
+                    }
+                };
+
+                script.onerror = () => {
+                    delete window[callbackName];
+                    if (document.body.contains(script)) {
+                        document.body.removeChild(script);
+                    }
+                    reject(new Error('Network error'));
+                };
+
+                document.body.appendChild(script);
+
+                // 超时处理
+                setTimeout(() => {
+                    if (window[callbackName]) {
+                        delete window[callbackName];
+                        if (document.body.contains(script)) {
+                            document.body.removeChild(script);
+                        }
+                        reject(new Error('Timeout'));
+                    }
+                }, 10000);
+            });
+        }
+
+        // 更新 IP 归属地单元格
+        function updateIpLocationCell(ip, location) {
+            const cells = document.querySelectorAll(`.ip-location[data-ip="${ip}"]`);
+            cells.forEach(cell => {
+                cell.textContent = location;
+            });
         }
         
         function renderPostTable(data) {
@@ -1184,18 +1310,22 @@
         function renderLogTable(data) {
             const tbody = document.getElementById('logTableBody');
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="loading">${t('noData')}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="loading">${t('noData')}</td></tr>`;
                 return;
             }
-            
+
             tbody.innerHTML = data.map(log => `
                 <tr>
                     <td>${formatDateTime(log.timestamp)}</td>
                     <td class="ip-cell">${log.ip}</td>
+                    <td class="ip-location" data-ip="${log.ip}">${t('loading')}</td>
                     <td>${log.filePath}</td>
                     <td>${log.browser || t('unknown')}</td>
                 </tr>
             `).join('');
+
+            // 异步加载 IP 归属地
+            loadIpLocations(data.map(log => log.ip));
         }
         
         function formatDateTime(isoString) {
