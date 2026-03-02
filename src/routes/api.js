@@ -649,38 +649,38 @@ function createApiRoutes(options) {
     }
 
     try {
-      const http = require('http');
-      const url = `http://ip-api.com/json/${ip}?fields=status,message,country,regionName,city&lang=zh-CN`;
+      const https = require('https');
+      const url = `https://api.ip.sb/geoip/${ip}`;
       
       console.log(`[IP查询] 请求: ${url}`);
       
-      http.get(url, (response) => {
+      https.get(url, (response) => {
         let data = '';
         response.on('data', (chunk) => data += chunk);
         response.on('end', () => {
           console.log(`[IP查询] 响应: ${data}`);
           try {
             const result = JSON.parse(data);
-            if (result.status === 'success') {
-              const location = result.country ? `${result.country} ${result.regionName} ${result.city}` : '未知';
+            if (result.country) {
+              const location = result.country;
               console.log(`[IP查询] 成功: ${ip} -> ${location}`);
               res.json({ success: true, ip, location });
             } else {
-              console.log(`[IP查询] 失败: ${result.message || '未知错误'}`);
-              res.json({ success: false, ip, location: '未知', error: result.message });
+              console.log(`[IP查询] 失败: 无国家信息`);
+              res.json({ success: false, ip, location: '未知' });
             }
           } catch (e) {
             console.error(`[IP查询] 解析错误:`, e);
-            res.json({ success: false, ip, location: '未知', error: 'Parse error' });
+            res.json({ success: false, ip, location: '未知' });
           }
         });
       }).on('error', (err) => {
         console.error(`[IP查询] 网络错误:`, err);
-        res.json({ success: false, ip, location: '未知', error: err.message });
+        res.json({ success: false, ip, location: '未知' });
       });
     } catch (error) {
       console.error(`[IP查询] 异常:`, error);
-      res.json({ success: false, ip, location: '未知', error: error.message });
+      res.json({ success: false, ip, location: '未知' });
     }
   });
 
