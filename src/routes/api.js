@@ -652,35 +652,27 @@ function createApiRoutes(options) {
       const http = require('http');
       const url = `http://ipwho.is/${ip}`;
       
-      console.log(`[IP查询] 请求: ${url}`);
-      
       http.get(url, (response) => {
         let data = '';
         response.on('data', (chunk) => data += chunk);
         response.on('end', () => {
-          console.log(`[IP查询] 响应: ${data}`);
           try {
             const result = JSON.parse(data);
             if (result.success && result.country) {
               const parts = [result.country, result.region, result.city].filter(Boolean);
               const location = parts.join(' ');
-              console.log(`[IP查询] 成功: ${ip} -> ${location}`);
               res.json({ success: true, ip, location });
             } else {
-              console.log(`[IP查询] 失败: ${result.message || '无数据'}`);
               res.json({ success: false, ip, location: '未知' });
             }
           } catch (e) {
-            console.error(`[IP查询] 解析错误:`, e);
             res.json({ success: false, ip, location: '未知' });
           }
         });
-      }).on('error', (err) => {
-        console.error(`[IP查询] 网络错误:`, err);
+      }).on('error', () => {
         res.json({ success: false, ip, location: '未知' });
       });
     } catch (error) {
-      console.error(`[IP查询] 异常:`, error);
       res.json({ success: false, ip, location: '未知' });
     }
   });
