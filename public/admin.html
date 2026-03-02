@@ -741,10 +741,11 @@
             // 更新表头
             const ipHeaders = document.querySelectorAll('#ipTable th');
             ipHeaders[0].textContent = t('ipAddress');
-            ipHeaders[1].textContent = t('visitCount');
-            ipHeaders[2].textContent = t('postCount');
-            ipHeaders[3].textContent = t('firstVisit');
-            ipHeaders[4].textContent = t('lastVisit');
+            ipHeaders[1].textContent = t('location');
+            ipHeaders[2].textContent = t('visitCount');
+            ipHeaders[3].textContent = t('postCount');
+            ipHeaders[4].textContent = t('firstVisit');
+            ipHeaders[5].textContent = t('lastVisit');
             
             const postHeaders = document.querySelectorAll('#postTable th');
             postHeaders[0].textContent = t('postPath');
@@ -754,8 +755,9 @@
             const logHeaders = document.querySelectorAll('#logTable th');
             logHeaders[0].textContent = t('time');
             logHeaders[1].textContent = t('ipAddress');
-            logHeaders[2].textContent = t('postPath');
-            logHeaders[3].textContent = t('browser');
+            logHeaders[2].textContent = t('location');
+            logHeaders[3].textContent = t('postPath');
+            logHeaders[4].textContent = t('browser');
         }
         
         let dateChart, hourChart, browserChart, weekdayChart, popularPostsChart, deviceChart, referrerChart, depthChart;
@@ -1237,50 +1239,25 @@
             }
         }
 
-        // 使用 JSONP 查询单个 IP 的归属地
-        function querySingleIpApi(ip) {
-            return new Promise((resolve, reject) => {
-                const callbackName = 'jsonp_callback_' + Math.random().toString(36).substr(2, 9);
-                const script = document.createElement('script');
-                script.src = `http://ip-api.com/json/${ip}?fields=status,message,country,regionName,city&callback=${callbackName}`;
-
-                window[callbackName] = (data) => {
-                    delete window[callbackName];
-                    if (document.body.contains(script)) {
-                        document.body.removeChild(script);
-                    }
-
-                    if (data.status === 'success') {
-                        const location = data.country ? `${data.country} ${data.regionName} ${data.city}` : t('unknown');
-                        ipLocationCache.set(ip, location);
-                        updateIpLocationCell(ip, location);
-                        resolve(data);
-                    } else {
-                        reject(new Error(data.message || 'Query failed'));
-                    }
-                };
-
-                script.onerror = () => {
-                    delete window[callbackName];
-                    if (document.body.contains(script)) {
-                        document.body.removeChild(script);
-                    }
-                    reject(new Error('Network error'));
-                };
-
-                document.body.appendChild(script);
-
-                // 超时处理
-                setTimeout(() => {
-                    if (window[callbackName]) {
-                        delete window[callbackName];
-                        if (document.body.contains(script)) {
-                            document.body.removeChild(script);
-                        }
-                        reject(new Error('Timeout'));
-                    }
-                }, 10000);
-            });
+        // 使用 fetch 查询单个 IP 的归属地
+        async function querySingleIpApi(ip) {
+            try {
+                const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,regionName,city&lang=zh-CN`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    const location = data.country ? `${data.country} ${data.regionName} ${data.city}` : t('unknown');
+                    ipLocationCache.set(ip, location);
+                    updateIpLocationCell(ip, location);
+                } else {
+                    throw new Error(data.message || 'Query failed');
+                }
+            } catch (error) {
+                const location = t('unknown');
+                ipLocationCache.set(ip, location);
+                updateIpLocationCell(ip, location);
+                throw error;
+            }
         }
 
         // 更新 IP 归属地单元格
