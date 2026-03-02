@@ -287,6 +287,13 @@
   align-items: center;
   gap: 4px;
   color: var(--text-placeholder);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.stat-item:hover {
+  color: var(--primary);
 }
 
 .stat-item svg {
