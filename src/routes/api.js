@@ -649,24 +649,25 @@ function createApiRoutes(options) {
     }
 
     try {
-      const https = require('https');
-      const url = `https://api.ip.sb/geoip/${ip}`;
+      const http = require('http');
+      const url = `http://ipwho.is/${ip}`;
       
       console.log(`[IP查询] 请求: ${url}`);
       
-      https.get(url, (response) => {
+      http.get(url, (response) => {
         let data = '';
         response.on('data', (chunk) => data += chunk);
         response.on('end', () => {
           console.log(`[IP查询] 响应: ${data}`);
           try {
             const result = JSON.parse(data);
-            if (result.country) {
-              const location = result.country;
+            if (result.success && result.country) {
+              const parts = [result.country, result.city].filter(Boolean);
+              const location = parts.join(' ');
               console.log(`[IP查询] 成功: ${ip} -> ${location}`);
               res.json({ success: true, ip, location });
             } else {
-              console.log(`[IP查询] 失败: 无国家信息`);
+              console.log(`[IP查询] 失败: ${result.message || '无数据'}`);
               res.json({ success: false, ip, location: '未知' });
             }
           } catch (e) {
