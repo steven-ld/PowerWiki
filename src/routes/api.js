@@ -661,7 +661,6 @@ function createApiRoutes(options) {
         res.json({ success: false, ip, location: '未知' });
       }
     } catch (error) {
-      console.error(`[IP查询] 错误:`, error.message);
       res.json({ success: false, ip, location: '未知' });
     }
   });
