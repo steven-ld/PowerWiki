@@ -8,7 +8,8 @@
     <link rel="stylesheet" href="/css/layout.css">
     <link rel="stylesheet" href="/css/components.css">
     <link rel="stylesheet" href="/css/media.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- AntV G2 图表库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@antv/g2@4.2.11/dist/g2.min.js"></script>
     <style>
         .admin-container {
             max-width: 1600px;
@@ -103,50 +104,128 @@
         .stat-card {
             background: var(--bg-body);
             border: 1px solid var(--border-light);
-            border-radius: 8px;
+            border-radius: 12px;
             padding: 20px;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
         }
-        
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3370ff 0%, #00a0e9 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
         .stat-card:hover {
-            box-shadow: var(--shadow-md);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(51, 112, 255, 0.15);
+            border-color: var(--primary);
         }
-        
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
         .stat-card-title {
             font-size: 13px;
             color: var(--text-secondary);
-            margin-bottom: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        
+
+        .stat-card-title::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--primary);
+            opacity: 0.6;
+        }
+
         .stat-card-value {
-            font-size: 28px;
+            font-size: 32px;
             font-weight: 700;
-            color: var(--primary);
+            color: var(--text-title);
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            letter-spacing: -1px;
+        }
+
+        .stat-card-value .unit {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-left: 4px;
         }
         
         .chart-container {
             background: var(--bg-body);
             border: 1px solid var(--border-light);
-            border-radius: 8px;
+            border-radius: 12px;
             padding: 24px;
             margin-bottom: 24px;
+            transition: all 0.3s ease;
+            position: relative;
         }
-        
+
+        .chart-container:hover {
+            box-shadow: 0 8px 24px rgba(51, 112, 255, 0.1);
+            border-color: rgba(51, 112, 255, 0.3);
+        }
+
         .chart-title {
             font-size: 16px;
             font-weight: 600;
             color: var(--text-title);
             margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        
+
+        .chart-title::before {
+            content: '';
+            width: 4px;
+            height: 18px;
+            background: linear-gradient(180deg, #3370ff 0%, #00a0e9 100%);
+            border-radius: 2px;
+        }
+
         .chart-wrapper {
             position: relative;
-            height: 350px;
+            height: 320px;
             width: 100%;
         }
-        
-        .chart-wrapper canvas {
-            max-height: 350px !important;
+
+        .chart-wrapper canvas,
+        .chart-wrapper .g2-tooltip {
+            max-height: 320px !important;
+        }
+
+        /* AntV G2 图表样式优化 */
+        .g2-tooltip {
+            background: var(--bg-body) !important;
+            border: 1px solid var(--border-light) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+            padding: 12px 16px !important;
+        }
+
+        .g2-tooltip-title {
+            color: var(--text-title) !important;
+            font-weight: 600 !important;
+        }
+
+        .g2-tooltip-list-item {
+            color: var(--text-body) !important;
         }
         
         .charts-grid {
@@ -405,14 +484,14 @@
                     <div class="chart-container">
                         <div class="chart-title">📈 最近30天访问趋势</div>
                         <div class="chart-wrapper">
-                            <canvas id="dateChart"></canvas>
+                            <div id="dateChart"></div>
                         </div>
                     </div>
                     
                     <div class="chart-container">
                         <div class="chart-title">⏰ 24小时访问分布</div>
                         <div class="chart-wrapper">
-                            <canvas id="hourChart"></canvas>
+                            <div id="hourChart"></div>
                         </div>
                     </div>
                 </div>
@@ -421,14 +500,14 @@
                     <div class="chart-container">
                         <div class="chart-title">🌐 浏览器分布</div>
                         <div class="chart-wrapper">
-                            <canvas id="browserChart"></canvas>
+                            <div id="browserChart"></div>
                         </div>
                     </div>
                     
                     <div class="chart-container">
                         <div class="chart-title">📱 设备类型分布</div>
                         <div class="chart-wrapper">
-                            <canvas id="deviceChart"></canvas>
+                            <div id="deviceChart"></div>
                         </div>
                     </div>
                 </div>
@@ -437,14 +516,14 @@
                     <div class="chart-container">
                         <div class="chart-title">🔗 访问来源分析</div>
                         <div class="chart-wrapper">
-                            <canvas id="referrerChart"></canvas>
+                            <div id="referrerChart"></div>
                         </div>
                     </div>
                     
                     <div class="chart-container">
                         <div class="chart-title">📊 用户访问深度</div>
                         <div class="chart-wrapper">
-                            <canvas id="depthChart"></canvas>
+                            <div id="depthChart"></div>
                         </div>
                     </div>
                 </div>
@@ -453,14 +532,14 @@
                     <div class="chart-container">
                         <div class="chart-title">📅 一周访问分布</div>
                         <div class="chart-wrapper">
-                            <canvas id="weekdayChart"></canvas>
+                            <div id="weekdayChart"></div>
                         </div>
                     </div>
                     
                     <div class="chart-container">
                         <div class="chart-title">🔥 最受欢迎文章（Top 10）</div>
                         <div class="chart-wrapper">
-                            <canvas id="popularPostsChart"></canvas>
+                            <div id="popularPostsChart"></div>
                         </div>
                     </div>
                 </div>
@@ -585,6 +664,10 @@
                 localStorage.setItem(this.MANUAL_KEY, 'true');
                 localStorage.setItem(this.MANUAL_DATE_KEY, new Date().toDateString());
                 this.updateToggleIcon(next);
+                // 主题切换后重新渲染图表
+                if (typeof refreshCharts === 'function') {
+                    refreshCharts();
+                }
             },
             
             updateToggleIcon(theme) {
@@ -761,7 +844,22 @@
         }
         
         let dateChart, hourChart, browserChart, weekdayChart, popularPostsChart, deviceChart, referrerChart, depthChart;
-        
+
+        // 存储图表数据用于主题切换后重新渲染
+        let chartDataCache = {};
+
+        // 主题切换后重新渲染所有图表
+        function refreshCharts() {
+            if (chartDataCache.dateChart) renderDateChart(chartDataCache.dateChart);
+            if (chartDataCache.hourChart) renderHourChart(chartDataCache.hourChart);
+            if (chartDataCache.browserChart) renderBrowserChart(chartDataCache.browserChart);
+            if (chartDataCache.deviceChart) renderDeviceChart(chartDataCache.deviceChart);
+            if (chartDataCache.referrerChart) renderReferrerChart(chartDataCache.referrerChart);
+            if (chartDataCache.depthChart) renderDepthChart(chartDataCache.depthChart);
+            if (chartDataCache.weekdayChart) renderWeekdayChart(chartDataCache.weekdayChart);
+            if (chartDataCache.popularPostsChart) renderPopularPostsChart(chartDataCache.popularPostsChart);
+        }
+
         async function loadAdminData() {
             try {
                 // 添加时间戳防止缓存
@@ -780,7 +878,17 @@
                 document.getElementById('returningUsers').textContent = data.summary.returningUsers.toLocaleString();
                 document.getElementById('retentionRate').textContent = data.summary.retentionRate + '%';
                 document.getElementById('avgDepth').textContent = data.summary.avgDepth;
-                
+
+                // 缓存图表数据用于主题切换后重新渲染
+                chartDataCache.dateChart = data.dateChart;
+                chartDataCache.hourChart = data.hourChart;
+                chartDataCache.browserChart = data.browserChart;
+                chartDataCache.deviceChart = data.deviceChart;
+                chartDataCache.referrerChart = data.referrerChart;
+                chartDataCache.depthChart = data.depthChart;
+                chartDataCache.weekdayChart = data.weekdayChart;
+                chartDataCache.popularPostsChart = data.popularPostsChart;
+
                 // 渲染日期图表
                 renderDateChart(data.dateChart);
                 
@@ -836,327 +944,485 @@
         }
         
         function renderDateChart(data) {
-            const ctx = document.getElementById('dateChart').getContext('2d');
-            
-            if (dateChart) {
-                dateChart.destroy();
-            }
-            
-            dateChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: data.map(d => {
-                        const date = new Date(d.date);
-                        return `${date.getMonth() + 1}/${date.getDate()}`;
-                    }),
-                    datasets: [{
-                        label: '访问量',
-                        data: data.map(d => d.count),
-                        borderColor: '#3370ff',
-                        backgroundColor: 'rgba(51, 112, 255, 0.1)',
-                        tension: 0.4,
-                        fill: true
-                    }]
+            const container = document.getElementById('dateChart');
+            container.innerHTML = '';
+
+            const chartData = data.map(d => {
+                const date = new Date(d.date);
+                return {
+                    date: `${date.getMonth() + 1}/${date.getDate()}`,
+                    value: d.count
+                };
+            });
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const axisColor = isDark ? '#4e5158' : '#8f959e';
+            const gridColor = isDark ? '#2a2a2a' : '#e8e9eb';
+
+            dateChart = new G2.Line({
+                container: 'dateChart',
+                width: container.offsetWidth || 600,
+                height: 320,
+                padding: [20, 20, 40, 40],
+                animate: true,
+                defaultColor: '#3370ff',
+                theme: {
+                    background: 'transparent'
+                }
+            });
+
+            dateChart.source(chartData, {
+                date: {
+                    type: 'time',
+                    tickCount: 10,
+                    mask: 'MM/DD'
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 2.5,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
+                value: {
+                    min: 0
+                }
+            });
+
+            dateChart.scale('value', {
+                min: 0,
+                tickCount: 5
+            });
+
+            dateChart.axis('date', {
+                label: {
+                    style: {
+                        fill: axisColor,
+                        fontSize: 12
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
+                    autoRotate: true
+                },
+                line: {
+                    style: {
+                        stroke: gridColor
+                    }
+                },
+                tickLine: {
+                    style: {
+                        stroke: gridColor
+                    }
+                }
+            });
+
+            dateChart.axis('value', {
+                label: {
+                    style: {
+                        fill: axisColor,
+                        fontSize: 12
+                    }
+                },
+                grid: {
+                    line: {
+                        style: {
+                            stroke: gridColor,
+                            lineDash: [4, 4]
                         }
                     }
                 }
             });
+
+            dateChart.tooltip({
+                showTitle: true,
+                title: 'date',
+                crosshairs: {
+                    type: 'vertical',
+                    style: {
+                        stroke: '#3370ff',
+                        lineDash: [4, 4]
+                    }
+                },
+                domStyles: {
+                    'g2-tooltip': {
+                        background: isDark ? '#1a1a1a' : '#ffffff',
+                        border: `1px solid ${gridColor}`,
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }
+                }
+            });
+
+            dateChart.line().position('date*value').shape('smooth').style({
+                stroke: '#3370ff',
+                lineWidth: 3
+            });
+
+            dateChart.area().position('date*value').shape('smooth').style({
+                fill: 'l(270) 0:#3370ff00 1:#3370ff30'
+            });
+
+            dateChart.point().position('date*value').size(4).style({
+                fill: '#fff',
+                stroke: '#3370ff',
+                lineWidth: 2,
+                shadowColor: '#3370ff',
+                shadowBlur: 8
+            }).state('hover', {
+                size: 8,
+                style: {
+                    fill: '#3370ff',
+                    stroke: '#fff',
+                    lineWidth: 2
+                }
+            });
+
+            dateChart.render();
         }
         
         function renderHourChart(data) {
-            const ctx = document.getElementById('hourChart').getContext('2d');
-            
-            if (hourChart) {
-                hourChart.destroy();
-            }
-            
-            hourChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: data.map(d => `${d.hour}:00`),
-                    datasets: [{
-                        label: '访问量',
-                        data: data.map(d => d.count),
-                        backgroundColor: '#3370ff',
-                        borderRadius: 4
-                    }]
+            const container = document.getElementById('hourChart');
+            container.innerHTML = '';
+
+            const chartData = data.map(d => ({
+                hour: `${d.hour}:00`,
+                value: d.count
+            }));
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const axisColor = isDark ? '#4e5158' : '#8f959e';
+            const gridColor = isDark ? '#2a2a2a' : '#e8e9eb';
+
+            hourChart = new G2.Bar({
+                container: 'hourChart',
+                width: container.offsetWidth || 600,
+                height: 320,
+                padding: [20, 20, 40, 40],
+                animate: true
+            });
+
+            hourChart.source(chartData);
+
+            hourChart.axis('hour', {
+                label: {
+                    style: {
+                        fill: axisColor,
+                        fontSize: 11
+                    }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 2.5,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
+                line: {
+                    style: {
+                        stroke: gridColor
+                    }
+                }
+            });
+
+            hourChart.axis('value', {
+                label: {
+                    style: {
+                        fill: axisColor,
+                        fontSize: 12
+                    }
+                },
+                grid: {
+                    line: {
+                        style: {
+                            stroke: gridColor,
+                            lineDash: [4, 4]
                         }
                     }
                 }
             });
+
+            hourChart.tooltip({
+                showTitle: true,
+                title: 'hour',
+                domStyles: {
+                    'g2-tooltip': {
+                        background: isDark ? '#1a1a1a' : '#ffffff',
+                        border: `1px solid ${gridColor}`,
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }
+                }
+            });
+
+            hourChart.interaction('active-region');
+
+            hourChart.bar().position('hour*value').color('hour*value', (hour, value) => {
+                const maxValue = Math.max(...data.map(d => d.count));
+                const ratio = value / maxValue;
+                if (ratio > 0.7) return '#3370ff';
+                if (ratio > 0.3) return '#5a8fff';
+                return '#8fbbff';
+            }).size(16).style({
+                radius: [4, 4, 0, 0]
+            }).animate({
+                appear: {
+                    animation: 'wave-in',
+                    duration: 1000
+                }
+            });
+
+            hourChart.render();
         }
-        
+
         function renderBrowserChart(data) {
-            const ctx = document.getElementById('browserChart').getContext('2d');
-            
-            if (browserChart) {
-                browserChart.destroy();
-            }
-            
-            const colors = [
-                '#3370ff', '#52c41a', '#faad14', '#f5222d', 
-                '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16'
-            ];
-            
-            browserChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: data.map(d => d.browser),
-                    datasets: [{
-                        data: data.map(d => d.count),
-                        backgroundColor: colors.slice(0, data.length),
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 2.5,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                padding: 15,
-                                font: {
-                                    size: 12
-                                }
-                            }
-                        }
+            const container = document.getElementById('browserChart');
+            container.innerHTML = '';
+
+            const chartData = data.map(d => ({
+                browser: d.browser,
+                value: d.count
+            }));
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const colors = ['#3370ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16'];
+            const textColor = isDark ? '#e8eaed' : '#1f2329';
+
+            browserChart = new G2.Pie({
+                container: 'browserChart',
+                width: container.offsetWidth || 500,
+                height: 320,
+                padding: [20, 40, 20, 40],
+                animate: true
+            });
+
+            browserChart.source(chartData);
+
+            browserChart.coordinate('theta', {
+                radius: 0.75,
+                innerRadius: 0.5
+            });
+
+            browserChart.tooltip({
+                showTitle: true,
+                title: 'browser',
+                domStyles: {
+                    'g2-tooltip': {
+                        background: isDark ? '#1a1a1a' : '#ffffff',
+                        border: isDark ? '1px solid #2a2a2a' : '1px solid #e8e9eb',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                     }
                 }
             });
+
+            browserChart.legend('browser', {
+                position: 'right',
+                offsetX: -10,
+                itemName: {
+                    style: {
+                        fill: textColor,
+                        fontSize: 12
+                    }
+                }
+            });
+
+            browserChart.interaction('element-active');
+
+            browserChart.pie()
+                .position('value')
+                .color('browser', colors)
+                .style({
+                    stroke: isDark ? '#111111' : '#ffffff',
+                    lineWidth: 2
+                })
+                .label('browser', {
+                    style: {
+                        fill: textColor,
+                        fontSize: 11
+                    },
+                    offset: 10
+                })
+                .animate({
+                    appear: {
+                        animation: 'wave-in',
+                        duration: 800
+                    }
+                });
+
+            browserChart.render();
         }
-        
+
         function renderWeekdayChart(data) {
-            const ctx = document.getElementById('weekdayChart').getContext('2d');
-            
-            if (weekdayChart) {
-                weekdayChart.destroy();
-            }
-            
-            weekdayChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: data.map(d => d.weekday),
-                    datasets: [{
-                        label: '访问量',
-                        data: data.map(d => d.count),
-                        backgroundColor: '#3370ff',
-                        borderRadius: 4
-                    }]
+            const container = document.getElementById('weekdayChart');
+            container.innerHTML = '';
+
+            const chartData = data.map(d => ({
+                weekday: d.weekday,
+                value: d.count
+            }));
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const axisColor = isDark ? '#4e5158' : '#8f959e';
+            const gridColor = isDark ? '#2a2a2a' : '#e8e9eb';
+
+            weekdayChart = new G2.Bar({
+                container: 'weekdayChart',
+                width: container.offsetWidth || 500,
+                height: 320,
+                padding: [20, 20, 40, 40],
+                animate: true
+            });
+
+            weekdayChart.source(chartData);
+
+            weekdayChart.axis('weekday', {
+                label: {
+                    style: {
+                        fill: axisColor,
+                        fontSize: 12
+                    }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 2.5,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
+                line: {
+                    style: {
+                        stroke: gridColor
+                    }
+                }
+            });
+
+            weekdayChart.axis('value', {
+                label: {
+                    style: {
+                        fill: axisColor,
+                        fontSize: 12
+                    }
+                },
+                grid: {
+                    line: {
+                        style: {
+                            stroke: gridColor,
+                            lineDash: [4, 4]
                         }
                     }
                 }
             });
+
+            weekdayChart.tooltip({
+                showTitle: true,
+                title: 'weekday',
+                domStyles: {
+                    'g2-tooltip': {
+                        background: isDark ? '#1a1a1a' : '#ffffff',
+                        border: `1px solid ${gridColor}`,
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }
+                }
+            });
+
+            weekdayChart.interaction('active-region');
+
+            weekdayChart.bar().position('weekday*value').color('weekday*value', (weekday, value) => {
+                const maxValue = Math.max(...data.map(d => d.count));
+                const ratio = value / maxValue;
+                if (ratio > 0.7) return '#3370ff';
+                if (ratio > 0.3) return '#5a8fff';
+                return '#8fbbff';
+            }).size(32).style({
+                radius: [6, 6, 0, 0]
+            }).animate({
+                appear: {
+                    animation: 'wave-in',
+                    duration: 800
+                }
+            });
+
+            weekdayChart.render();
         }
-        
+
         function renderPopularPostsChart(data) {
-            const ctx = document.getElementById('popularPostsChart').getContext('2d');
-            
-            if (popularPostsChart) {
-                popularPostsChart.destroy();
-            }
-            
-            popularPostsChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: data.map(d => d.name),
-                    datasets: [{
-                        label: '访问次数',
-                        data: data.map(d => d.count),
-                        backgroundColor: '#3370ff',
-                        borderRadius: 4
-                    }]
+            const container = document.getElementById('popularPostsChart');
+            container.innerHTML = '';
+
+            // 截断过长的文章名
+            const chartData = data.map(d => ({
+                name: d.name.length > 20 ? d.name.substring(0, 20) + '...' : d.name,
+                fullName: d.name,
+                value: d.count
+            }));
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const axisColor = isDark ? '#4e5158' : '#8f959e';
+            const gridColor = isDark ? '#2a2a2a' : '#e8e9eb';
+            const textColor = isDark ? '#e8eaed' : '#1f2329';
+
+            popularPostsChart = new G2.Bar({
+                container: 'popularPostsChart',
+                width: container.offsetWidth || 500,
+                height: 320,
+                padding: [20, 80, 20, 20],
+                animate: true
+            });
+
+            popularPostsChart.source(chartData);
+
+            popularPostsChart.coordinate('rect').transpose();
+
+            popularPostsChart.axis('name', {
+                label: {
+                    style: {
+                        fill: textColor,
+                        fontSize: 11
+                    }
                 },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 2,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
+                line: {
+                    style: {
+                        stroke: gridColor
+                    }
+                }
+            });
+
+            popularPostsChart.axis('value', {
+                label: {
+                    style: {
+                        fill: axisColor,
+                        fontSize: 12
+                    }
+                },
+                grid: {
+                    line: {
+                        style: {
+                            stroke: gridColor,
+                            lineDash: [4, 4]
                         }
                     }
                 }
             });
-        }
-        
-        function renderBrowserChart(data) {
-            const ctx = document.getElementById('browserChart').getContext('2d');
-            
-            if (browserChart) {
-                browserChart.destroy();
-            }
-            
-            const colors = [
-                '#3370ff', '#52c41a', '#faad14', '#f5222d', 
-                '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16'
-            ];
-            
-            browserChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: data.map(d => d.browser),
-                    datasets: [{
-                        data: data.map(d => d.count),
-                        backgroundColor: colors.slice(0, data.length),
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 2.5,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                padding: 15,
-                                font: {
-                                    size: 12
-                                }
-                            }
-                        }
+
+            popularPostsChart.tooltip({
+                showTitle: true,
+                title: 'name',
+                itemNames: ['访问次数'],
+                domStyles: {
+                    'g2-tooltip': {
+                        background: isDark ? '#1a1a1a' : '#ffffff',
+                        border: `1px solid ${gridColor}`,
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                     }
                 }
             });
-        }
-        
-        function renderWeekdayChart(data) {
-            const ctx = document.getElementById('weekdayChart').getContext('2d');
-            
-            if (weekdayChart) {
-                weekdayChart.destroy();
-            }
-            
-            weekdayChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: data.map(d => d.weekday),
-                    datasets: [{
-                        label: '访问量',
-                        data: data.map(d => d.count),
-                        backgroundColor: '#3370ff',
-                        borderRadius: 4
-                    }]
+
+            popularPostsChart.interaction('active-region');
+
+            popularPostsChart.bar().position('name*value').color('value', (val) => {
+                const maxValue = Math.max(...data.map(d => d.count));
+                const ratio = val / maxValue;
+                if (ratio > 0.7) return '#3370ff';
+                if (ratio > 0.3) return '#5a8fff';
+                return '#8fbbff';
+            }).size(20).style({
+                radius: [0, 4, 4, 0]
+            }).label('value', {
+                style: {
+                    fill: textColor,
+                    fontSize: 11
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 2.5,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
-                        }
-                    }
+                offset: 5
+            }).animate({
+                appear: {
+                    animation: 'wave-in',
+                    duration: 800
                 }
             });
+
+            popularPostsChart.render();
         }
-        
-        function renderPopularPostsChart(data) {
-            const ctx = document.getElementById('popularPostsChart').getContext('2d');
-            
-            if (popularPostsChart) {
-                popularPostsChart.destroy();
-            }
-            
-            popularPostsChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: data.map(d => d.name),
-                    datasets: [{
-                        label: '访问次数',
-                        data: data.map(d => d.count),
-                        backgroundColor: '#3370ff',
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 2,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
-                        }
-                    }
-                }
-            });
-        }
+
+        // 重复的 Chart.js 函数已移除 - 使用上方 AntV G2 版本
         
         function renderIPTable(data) {
             const tbody = document.getElementById('ipTableBody');
@@ -1392,113 +1658,251 @@
             // 每30秒自动刷新数据
             setInterval(loadAdminData, 30000);
         });
-        
-        // 新增图表渲染函数
+
+        // 新增图表渲染函数 - 使用 AntV G2
         function renderDeviceChart(data) {
-            const ctx = document.getElementById('deviceChart').getContext('2d');
-            
-            if (deviceChart) {
-                deviceChart.destroy();
-            }
-            
+            const container = document.getElementById('deviceChart');
+            container.innerHTML = '';
+
+            const chartData = data.map(d => ({
+                device: d.device,
+                value: d.count
+            }));
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
             const colors = ['#3370ff', '#52c41a', '#faad14'];
-            
-            deviceChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: data.map(d => d.device),
-                    datasets: [{
-                        data: data.map(d => d.count),
-                        backgroundColor: colors.slice(0, data.length),
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 2.5,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                padding: 15,
-                                font: { size: 12 }
-                            }
-                        }
+            const textColor = isDark ? '#e8eaed' : '#1f2329';
+
+            deviceChart = new G2.Pie({
+                container: 'deviceChart',
+                width: container.offsetWidth || 500,
+                height: 320,
+                padding: [20, 40, 20, 40],
+                animate: true
+            });
+
+            deviceChart.source(chartData);
+
+            deviceChart.coordinate('theta', {
+                radius: 0.75,
+                innerRadius: 0.55
+            });
+
+            deviceChart.tooltip({
+                showTitle: true,
+                title: 'device',
+                domStyles: {
+                    'g2-tooltip': {
+                        background: isDark ? '#1a1a1a' : '#ffffff',
+                        border: isDark ? '1px solid #2a2a2a' : '1px solid #e8e9eb',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                     }
                 }
             });
+
+            deviceChart.legend('device', {
+                position: 'right',
+                offsetX: -10,
+                itemName: {
+                    style: {
+                        fill: textColor,
+                        fontSize: 12
+                    }
+                }
+            });
+
+            deviceChart.interaction('element-active');
+
+            deviceChart.pie()
+                .position('value')
+                .color('device', colors)
+                .style({
+                    stroke: isDark ? '#111111' : '#ffffff',
+                    lineWidth: 2
+                })
+                .label('device', {
+                    style: {
+                        fill: textColor,
+                        fontSize: 11
+                    },
+                    offset: 10
+                })
+                .animate({
+                    appear: {
+                        animation: 'wave-in',
+                        duration: 800
+                    }
+                });
+
+            deviceChart.render();
         }
-        
+
         function renderReferrerChart(data) {
-            const ctx = document.getElementById('referrerChart').getContext('2d');
-            
-            if (referrerChart) {
-                referrerChart.destroy();
-            }
-            
-            referrerChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: data.map(d => d.referrer),
-                    datasets: [{
-                        label: t('visits'),
-                        data: data.map(d => d.count),
-                        backgroundColor: '#3370ff',
-                        borderRadius: 4
-                    }]
+            const container = document.getElementById('referrerChart');
+            container.innerHTML = '';
+
+            const chartData = data.map(d => ({
+                referrer: d.referrer,
+                value: d.count
+            }));
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const axisColor = isDark ? '#4e5158' : '#8f959e';
+            const gridColor = isDark ? '#2a2a2a' : '#e8e9eb';
+
+            referrerChart = new G2.Bar({
+                container: 'referrerChart',
+                width: container.offsetWidth || 500,
+                height: 320,
+                padding: [20, 20, 40, 40],
+                animate: true
+            });
+
+            referrerChart.source(chartData);
+
+            referrerChart.axis('referrer', {
+                label: {
+                    style: {
+                        fill: axisColor,
+                        fontSize: 12
+                    }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 2.5,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { stepSize: 1 }
+                line: {
+                    style: {
+                        stroke: gridColor
+                    }
+                }
+            });
+
+            referrerChart.axis('value', {
+                label: {
+                    style: {
+                        fill: axisColor,
+                        fontSize: 12
+                    }
+                },
+                grid: {
+                    line: {
+                        style: {
+                            stroke: gridColor,
+                            lineDash: [4, 4]
                         }
                     }
                 }
             });
+
+            referrerChart.tooltip({
+                showTitle: true,
+                title: 'referrer',
+                domStyles: {
+                    'g2-tooltip': {
+                        background: isDark ? '#1a1a1a' : '#ffffff',
+                        border: `1px solid ${gridColor}`,
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }
+                }
+            });
+
+            referrerChart.interaction('active-region');
+
+            referrerChart.bar().position('referrer*value').color('referrer*value', (ref, value) => {
+                const maxValue = Math.max(...data.map(d => d.count));
+                const ratio = value / maxValue;
+                if (ratio > 0.7) return '#3370ff';
+                if (ratio > 0.3) return '#5a8fff';
+                return '#8fbbff';
+            }).size(24).style({
+                radius: [4, 4, 0, 0]
+            }).animate({
+                appear: {
+                    animation: 'wave-in',
+                    duration: 800
+                }
+            });
+
+            referrerChart.render();
         }
-        
+
         function renderDepthChart(data) {
-            const ctx = document.getElementById('depthChart').getContext('2d');
-            
-            if (depthChart) {
-                depthChart.destroy();
-            }
-            
+            const container = document.getElementById('depthChart');
+            container.innerHTML = '';
+
+            const chartData = data.map(d => ({
+                depth: t(d.depth),
+                value: d.count
+            }));
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
             const colors = ['#f5222d', '#faad14', '#52c41a'];
-            
-            depthChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: data.map(d => t(d.depth)),
-                    datasets: [{
-                        data: data.map(d => d.count),
-                        backgroundColor: colors.slice(0, data.length),
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 2.5,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                padding: 15,
-                                font: { size: 12 }
-                            }
-                        }
+            const textColor = isDark ? '#e8eaed' : '#1f2329';
+
+            depthChart = new G2.Pie({
+                container: 'depthChart',
+                width: container.offsetWidth || 500,
+                height: 320,
+                padding: [20, 40, 20, 40],
+                animate: true
+            });
+
+            depthChart.source(chartData);
+
+            depthChart.coordinate('theta', {
+                radius: 0.75,
+                innerRadius: 0.5
+            });
+
+            depthChart.tooltip({
+                showTitle: true,
+                title: 'depth',
+                domStyles: {
+                    'g2-tooltip': {
+                        background: isDark ? '#1a1a1a' : '#ffffff',
+                        border: isDark ? '1px solid #2a2a2a' : '1px solid #e8e9eb',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                     }
                 }
             });
+
+            depthChart.legend('depth', {
+                position: 'right',
+                offsetX: -10,
+                itemName: {
+                    style: {
+                        fill: textColor,
+                        fontSize: 12
+                    }
+                }
+            });
+
+            depthChart.interaction('element-active');
+
+            depthChart.pie()
+                .position('value')
+                .color('depth', colors)
+                .style({
+                    stroke: isDark ? '#111111' : '#ffffff',
+                    lineWidth: 2
+                })
+                .label('depth', {
+                    style: {
+                        fill: textColor,
+                        fontSize: 11
+                    },
+                    offset: 10
+                })
+                .animate({
+                    appear: {
+                        animation: 'wave-in',
+                        duration: 800
+                    }
+                });
+
+            depthChart.render();
         }
-        
+
     </script>
 </body>
 </html>
