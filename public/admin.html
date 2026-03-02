@@ -1239,19 +1239,15 @@
             }
         }
 
-        // 使用 fetch 查询单个 IP 的归属地
+        // 调用后端 API 查询单个 IP 的归属地
         async function querySingleIpApi(ip) {
             try {
-                const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,regionName,city&lang=zh-CN`);
+                const response = await fetch(`/api/ip/location?ip=${encodeURIComponent(ip)}`);
                 const data = await response.json();
                 
-                if (data.status === 'success') {
-                    const location = data.country ? `${data.country} ${data.regionName} ${data.city}` : t('unknown');
-                    ipLocationCache.set(ip, location);
-                    updateIpLocationCell(ip, location);
-                } else {
-                    throw new Error(data.message || 'Query failed');
-                }
+                const location = data.success ? data.location : t('unknown');
+                ipLocationCache.set(ip, location);
+                updateIpLocationCell(ip, location);
             } catch (error) {
                 const location = t('unknown');
                 ipLocationCache.set(ip, location);

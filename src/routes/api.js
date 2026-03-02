@@ -641,6 +641,41 @@ function createApiRoutes(options) {
     }
   });
 
+  // API: 查询 IP 归属地
+  router.get('/ip/location', async (req, res) => {
+    const { ip } = req.query;
+    if (!ip) {
+      return res.status(400).json({ error: 'IP address is required' });
+    }
+
+    try {
+      const http = require('http');
+      const url = `http://ip-api.com/json/${ip}?fields=status,message,country,regionName,city&lang=zh-CN`;
+      
+      http.get(url, (response) => {
+        let data = '';
+        response.on('data', (chunk) => data += chunk);
+        response.on('end', () => {
+          try {
+            const result = JSON.parse(data);
+            if (result.status === 'success') {
+              const location = result.country ? `${result.country} ${result.regionName} ${result.city}` : '未知';
+              res.json({ success: true, ip, location });
+            } else {
+              res.json({ success: false, ip, location: '未知' });
+            }
+          } catch (e) {
+            res.json({ success: false, ip, location: '未知' });
+          }
+        });
+      }).on('error', () => {
+        res.json({ success: false, ip, location: '未知' });
+      });
+    } catch (error) {
+      res.json({ success: false, ip, location: '未知' });
+    }
+  });
+
   // API: 获取缓存统计
   router.get('/cache/stats', (req, res) => {
     res.json(cacheManager.getStats());
