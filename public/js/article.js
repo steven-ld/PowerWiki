@@ -316,16 +316,18 @@ function renderPost(post) {
     renderMermaidBlocks();
 
     // 为标题添加 ID 并生成目录
-    generateTOC();
+    const hasTOC = generateTOC();
 
-    // 显示目录栏
+    // 仅在存在标题目录时显示目录栏
     const tocSidebar = document.getElementById('tocSidebar');
     if (tocSidebar) {
-      tocSidebar.style.display = 'flex';
+      tocSidebar.style.display = hasTOC ? 'flex' : 'none';
     }
 
     // 设置目录滚动监听
-    setupTOCScroll();
+    if (hasTOC) {
+      setupTOCScroll();
+    }
   }
 
   // 格式化创建日期（显示在左上角）

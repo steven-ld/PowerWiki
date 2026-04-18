@@ -1,16 +1,26 @@
+function clearTOC(tocNav, tocSidebar) {
+  if (tocNav) {
+    tocNav.innerHTML = '';
+  }
+
+  if (tocSidebar) {
+    tocSidebar.style.display = 'none';
+  }
+}
+
 // 生成首页目录（如果首页有 README 内容）
 function generateHomeTOC() {
   const homeContent = document.getElementById('homeContent');
   const tocNav = document.getElementById('tocNav');
   const tocSidebar = document.getElementById('tocSidebar');
 
-  if (!homeContent || !tocNav || !tocSidebar) return;
+  if (!homeContent || !tocNav || !tocSidebar) return false;
 
   const headings = homeContent.querySelectorAll('h1, h2, h3, h4, h5, h6');
 
   if (headings.length === 0) {
-    tocSidebar.style.display = 'none';
-    return;
+    clearTOC(tocNav, tocSidebar);
+    return false;
   }
 
   // 显示目录栏
@@ -61,6 +71,7 @@ function generateHomeTOC() {
 
   // 设置滚动监听
   setupHomeTOCScroll();
+  return true;
 }
 
 // 设置首页目录滚动高亮
@@ -105,8 +116,8 @@ function generateTOC() {
   const headings = postBody.querySelectorAll('h1, h2, h3, h4, h5, h6');
 
   if (headings.length === 0) {
-    tocSidebar.style.display = 'none';
-    return;
+    clearTOC(tocNav, tocSidebar);
+    return false;
   }
 
   tocSidebar.style.display = 'flex';
@@ -160,6 +171,8 @@ function generateTOC() {
       }
     });
   });
+
+  return true;
 }
 
 // 更新目录高亮状态
