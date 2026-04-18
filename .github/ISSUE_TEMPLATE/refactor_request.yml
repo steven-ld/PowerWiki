@@ -1,0 +1,32 @@
+name: Refactor 建议
+description: 提交一个代码结构、模块划分或可维护性改进建议
+title: "[refactor] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: current_problem
+    attributes:
+      label: 当前问题
+      description: 现有实现在哪些方面不够清晰或不易维护
+      placeholder: 例如：某个文件过大，职责过多，后续修改风险较高
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议调整
+      description: 你建议如何重构
+      placeholder: 例如：拆分模块、下沉公共逻辑、调整目录结构
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefit
+    attributes:
+      label: 预期收益
+      description: 这次重构主要带来什么价值
+      placeholder: 例如：更易维护、更易扩展、降低后续改动风险
+    validations:
+      required: false
