@@ -7,6 +7,78 @@ const postFileName = document.getElementById('postFileName');
 const postSize = document.getElementById('postSize');
 const siteHeader = document.getElementById('siteHeader');
 const siteFooter = document.getElementById('siteFooter');
+const copyDocBtn = document.getElementById('copyDocBtn');
+const rawToggleBtn = document.getElementById('rawToggleBtn');
+
+// 原始文档切换状态
+let isRawView = false;
+let renderedHtml = '';
+
+// 复制文档按钮事件（复制原始 Markdown 内容）
+if (copyDocBtn) {
+  copyDocBtn.addEventListener('click', async () => {
+    if (!currentPost || !currentPost.path) return;
+
+    const btn = copyDocBtn;
+    const btnText = btn.querySelector('span');
+    const originalText = btnText ? btnText.textContent : '';
+
+    try {
+      const rawContent = currentPost.raw || '';
+      await navigator.clipboard.writeText(rawContent);
+
+      btn.classList.add('copied');
+      if (btnText) btnText.textContent = '✓ ' + i18n.t('client.copied');
+      showNotification(i18n.t('client.copied'), 'success');
+
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        if (btnText) btnText.textContent = originalText;
+      }, 2000);
+    } catch (error) {
+      console.error('复制失败:', error);
+      showNotification(i18n.t('client.copyFailed') + ': ' + error.message, 'error');
+    }
+  });
+}
+
+// 原始文档切换按钮事件
+if (rawToggleBtn) {
+  rawToggleBtn.addEventListener('click', () => {
+    if (!currentPost) return;
+
+    isRawView = !isRawView;
+    const btn = rawToggleBtn;
+
+    if (isRawView) {
+      // 保存当前完整渲染状态（包含更新时间和许可证）
+      renderedHtml = postBody.innerHTML;
+      // 切换到原始 Markdown 视图
+      const rawContent = currentPost.raw || '';
+      postBody.innerHTML = `<pre class="raw-markdown-view">${escapeHtml(rawContent)}</pre>`;
+      btn.classList.add('active');
+      const rawBtnText = btn.querySelector('span');
+      if (rawBtnText) rawBtnText.textContent = i18n.t('client.showRendered');
+      // 隐藏目录
+      const tocSidebar = document.getElementById('tocSidebar');
+      if (tocSidebar) tocSidebar.style.display = 'none';
+    } else {
+      // 切换到渲染视图
+      postBody.innerHTML = renderedHtml;
+      btn.classList.remove('active');
+      const rawBtnText = btn.querySelector('span');
+      if (rawBtnText) rawBtnText.textContent = i18n.t('client.showRaw');
+      // 重新初始化渲染视图的功能
+      addCopyButtonsToCodeBlocks();
+      addImageZoomFeature();
+      renderMermaidBlocks();
+      const hasTOC = generateTOC();
+      const tocSidebar = document.getElementById('tocSidebar');
+      if (tocSidebar) tocSidebar.style.display = hasTOC ? 'flex' : 'none';
+      if (hasTOC) setupTOCScroll();
+    }
+  });
+}
 
 // 加载网站配置和模板
 async function loadConfig() {
@@ -290,6 +362,10 @@ function renderPost(post) {
   const fileType = post.type || (filePath.endsWith('.pdf') ? 'pdf' : 'markdown');
 
   if (fileType === 'pdf') {
+    // PDF 文件：隐藏按钮
+    if (copyDocBtn) copyDocBtn.style.display = 'none';
+    if (rawToggleBtn) rawToggleBtn.style.display = 'none';
+
     // PDF 文件：渲染成图片，无任何控件
     const pdfUrl = `/api/pdf/${encodePath(filePath)}`;
     postBody.innerHTML = `<div class="pdf-pages" id="pdfPages"></div>`;
@@ -303,8 +379,19 @@ function renderPost(post) {
       tocSidebar.style.display = 'none';
     }
   } else {
+    // Markdown 文件：显示按钮，重置状态
+    if (copyDocBtn) copyDocBtn.style.display = 'inline-flex';
+    if (rawToggleBtn) {
+      rawToggleBtn.style.display = 'inline-flex';
+      rawToggleBtn.classList.remove('active');
+      const rawBtnText = rawToggleBtn.querySelector('span');
+      if (rawBtnText) rawBtnText.textContent = i18n.t('client.showRaw');
+    }
+    isRawView = false;
+
     // Markdown 文件：正常渲染
     postBody.innerHTML = post.html;
+    renderedHtml = post.html;
 
     // 为代码块添加复制按钮
     addCopyButtonsToCodeBlocks();
