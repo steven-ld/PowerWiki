@@ -201,9 +201,9 @@ function addCopyButtonsToCodeBlocks(container = null) {
     copyBtn.className = 'code-copy-btn';
     copyBtn.title = i18n.t('client.copyCode');
     copyBtn.innerHTML = `
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
-        <path d="M3 11V3a2 2 0 0 1 2-2h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
+        <rect x="3.5" y="3.5" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M1.5 10.5V3a1.5 1.5 0 0 1 1.5-1.5h7.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
       </svg>
       <span class="copy-text">${i18n.t('client.copy')}</span>
     `;
