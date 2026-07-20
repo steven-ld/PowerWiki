@@ -111,6 +111,15 @@
   font-size: 12px;
 }
 
+/* 操作按钮行（复制 / 原始 / 分享），独立于 meta 信息行显示 */
+.post-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 /* ========== Markdown 内容 ========== */
 .markdown-body {
   font-size: 15px;
