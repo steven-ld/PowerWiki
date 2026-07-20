@@ -347,6 +347,49 @@
   font-size: 12px;
 }
 
+/* ========== 分享短链按钮 ========== */
+.share-doc-btn {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  background: var(--bg-container);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  line-height: 1;
+}
+
+.share-doc-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.share-doc-btn:active {
+  transform: scale(0.96);
+}
+
+.share-doc-btn.copied {
+  background: #4caf50;
+  color: #fff;
+  border-color: #4caf50;
+}
+
+.share-doc-btn svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.share-doc-btn span {
+  font-size: 12px;
+}
+
 /* ========== 原始 Markdown 视图 ========== */
 .raw-markdown-view {
   font-family: 'SF Mono', Monaco, Menlo, Consolas, monospace;

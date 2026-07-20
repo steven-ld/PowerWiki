@@ -88,6 +88,7 @@
     "postNotFound": "Post not found",
     "readHomePageFailed": "Cannot read homepage",
     "getAdminStatsFailed": "Failed to get admin statistics",
+    "getShortlinkFailed": "Failed to get shortlink",
     "cacheCleared": "Cache cleared",
     "allCacheCleared": "All cache cleared"
   },
@@ -132,6 +133,9 @@
     "copyDoc": "Copy",
     "showRaw": "Raw",
     "showRendered": "Render",
+    "share": "Share",
+    "shareCopied": "Short link copied",
+    "shareFailed": "Failed to generate short link",
     "pathParseFailed": "Path parsing failed",
     "loadPostFailed": "Failed to load article",
     "loadPostsFailed": "Failed to load articles list",

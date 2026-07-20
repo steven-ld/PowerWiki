@@ -399,6 +399,10 @@
                         <div class="stat-card-title">平均访问深度</div>
                         <div class="stat-card-value" id="avgDepth">-</div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-card-title">短链访问量</div>
+                        <div class="stat-card-value" id="totalShortlinkViews">-</div>
+                    </div>
                 </div>
                 
                 <div class="charts-grid">
@@ -512,6 +516,29 @@
                     </div>
                 </div>
                 
+                <div class="table-container">
+                    <div class="table-header">
+                        <h2>📎 短链访问统计（Top 10）</h2>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="shortlinkTable">
+                            <thead>
+                                <tr>
+                                    <th>短链</th>
+                                    <th>文章路径</th>
+                                    <th>访问次数</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="shortlinkTableBody">
+                                <tr>
+                                    <td colspan="4" class="loading">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div class="table-container" id="logTableContainer">
                     <div class="table-header" onclick="toggleTable('logTableContainer')">
                         <h2>🕐 最近访问记录</h2>
@@ -625,6 +652,11 @@
                 returningUsers: '回访用户',
                 retentionRate: '用户留存率',
                 avgDepth: '平均访问深度',
+                totalShortlinkViews: '短链访问量',
+                shortlinkStats: '📎 短链访问统计（Top 10）',
+                shortCode: '短链',
+                copyShortlink: '复制',
+                shortlinkCopied: '已复制',
                 dateChart: '📈 最近30天访问趋势',
                 hourChart: '⏰ 24小时访问分布',
                 browserChart: '🌐 浏览器分布',
@@ -669,6 +701,11 @@
                 returningUsers: 'Returning Users',
                 retentionRate: 'Retention Rate',
                 avgDepth: 'Avg Visit Depth',
+                totalShortlinkViews: 'Short Link Views',
+                shortlinkStats: '📎 Short Link Statistics (Top 10)',
+                shortCode: 'Short Link',
+                copyShortlink: 'Copy',
+                shortlinkCopied: 'Copied',
                 dateChart: '📈 30-Day Access Trend',
                 hourChart: '⏰ 24-Hour Distribution',
                 browserChart: '🌐 Browser Distribution',
@@ -722,6 +759,7 @@
             statTitles[3].textContent = t('returningUsers');
             statTitles[4].textContent = t('retentionRate');
             statTitles[5].textContent = t('avgDepth');
+            if (statTitles[6]) statTitles[6].textContent = t('totalShortlinkViews');
             
             // 更新图表标题
             document.querySelectorAll('.chart-title')[0].textContent = t('dateChart');
@@ -736,7 +774,8 @@
             // 更新表格标题
             document.querySelectorAll('.table-header h2')[0].textContent = t('ipStats');
             document.querySelectorAll('.table-header h2')[1].textContent = t('postStats');
-            document.querySelectorAll('.table-header h2')[2].textContent = t('recentLogs');
+            document.querySelectorAll('.table-header h2')[2].textContent = t('shortlinkStats');
+            document.querySelectorAll('.table-header h2')[3].textContent = t('recentLogs');
             
             // 更新表头
             const ipHeaders = document.querySelectorAll('#ipTable th');
@@ -751,7 +790,14 @@
             postHeaders[0].textContent = t('postPath');
             postHeaders[1].textContent = t('visitCount');
             postHeaders[2].textContent = t('uniqueIPs');
-            
+
+            const shortlinkHeaders = document.querySelectorAll('#shortlinkTable th');
+            if (shortlinkHeaders.length) {
+                shortlinkHeaders[0].textContent = t('shortCode');
+                shortlinkHeaders[1].textContent = t('postPath');
+                shortlinkHeaders[2].textContent = t('visitCount');
+            }
+
             const logHeaders = document.querySelectorAll('#logTable th');
             logHeaders[0].textContent = t('time');
             logHeaders[1].textContent = t('ipAddress');
@@ -780,6 +826,7 @@
                 document.getElementById('returningUsers').textContent = data.summary.returningUsers.toLocaleString();
                 document.getElementById('retentionRate').textContent = data.summary.retentionRate + '%';
                 document.getElementById('avgDepth').textContent = data.summary.avgDepth;
+                document.getElementById('totalShortlinkViews').textContent = (data.summary.totalShortlinkViews || 0).toLocaleString();
                 
                 // 渲染日期图表
                 renderDateChart(data.dateChart);
@@ -822,6 +869,9 @@
                 
                 // 渲染文章统计表
                 renderPostTable(data.postStats.slice(0, 10));
+
+                // 渲染短链统计表
+                renderShortlinkTable((data.shortlinkStats || []).slice(0, 10));
                 
                 // 渲染访问记录表
                 renderLogTable(data.recentLogs);
@@ -1279,7 +1329,42 @@
                 </tr>
             `).join('');
         }
-        
+
+        function renderShortlinkTable(data) {
+            const tbody = document.getElementById('shortlinkTableBody');
+            if (!tbody) return;
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="loading">${t('noData')}</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map(item => {
+                const shortUrl = `${window.location.origin}/s/${item.code}`;
+                return `
+                <tr>
+                    <td class="ip-cell"><a href="${shortUrl}" target="_blank" rel="noopener">/s/${item.code}</a></td>
+                    <td>${item.filePath || ''}</td>
+                    <td><span class="badge badge-primary">${item.count}</span></td>
+                    <td><button class="copy-shortlink-btn badge" data-url="${shortUrl}">${t('copyShortlink')}</button></td>
+                </tr>`;
+            }).join('');
+
+            // 绑定复制按钮
+            tbody.querySelectorAll('.copy-shortlink-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const url = btn.dataset.url;
+                    try {
+                        await navigator.clipboard.writeText(url);
+                        const original = btn.textContent;
+                        btn.textContent = t('shortlinkCopied');
+                        setTimeout(() => { btn.textContent = original; }, 1500);
+                    } catch (e) {
+                        // 忽略复制失败
+                    }
+                });
+            });
+        }
+
         function renderLogTable(data) {
             const tbody = document.getElementById('logTableBody');
             if (data.length === 0) {

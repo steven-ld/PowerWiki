@@ -88,6 +88,7 @@
     "postNotFound": "文章不存在",
     "readHomePageFailed": "无法读取首页",
     "getAdminStatsFailed": "获取管理统计失败",
+    "getShortlinkFailed": "获取短链失败",
     "cacheCleared": "已清除缓存",
     "allCacheCleared": "已清除所有缓存"
   },
@@ -132,6 +133,9 @@
     "copyDoc": "复制",
     "showRaw": "原始",
     "showRendered": "渲染",
+    "share": "分享",
+    "shareCopied": "短链已复制",
+    "shareFailed": "生成短链失败",
     "pathParseFailed": "路径解析失败",
     "loadPostFailed": "加载文章失败",
     "loadPostsFailed": "加载文章列表失败",

@@ -20,6 +20,7 @@ const GitManager = require('./utils/gitManager');
 const { parseMarkdown } = require('./utils/markdownParser');
 const cacheManager = require('./utils/cacheManager');
 const seoHelper = require('./utils/seoHelper');
+const { buildCodeMap } = require('./utils/shortlink');
 const { createApiRoutes } = require('./routes/api');
 const { createApiFeedRoutes } = require('./routes/feeds');
 const { createStaticRoutes } = require('./routes/static');
@@ -469,6 +470,48 @@ Sitemap: ${baseUrl}/sitemap.xml
 `;
   res.setHeader('Content-Type', 'text/plain');
   res.send(robotsTxt);
+});
+
+// 短链跳转：/s/:code -> 302 跳转到对应文章，并记录短链访问次数
+// code 由文章路径哈希派生（见 utils/shortlink.js），此处基于当前文章列表反查路径，
+// 保证只会命中一篇现存文章；文件被删除/重命名后短链自动失效。
+app.get('/s/:code', async (req, res) => {
+  const code = req.params.code;
+
+  try {
+    // 优先复用 /api/posts 的缓存，避免每次跳转都全量扫描 + git log（开销大）
+    let filePaths;
+    const cachedPosts = cacheManager.get('posts');
+    if (cachedPosts && Array.isArray(cachedPosts.flat)) {
+      filePaths = cachedPosts.flat.map(f => f.path);
+    } else {
+      const files = await gitManager.getAllMarkdownFiles(config.mdPath);
+      filePaths = files.map(f => f.path);
+    }
+
+    const codeMap = buildCodeMap(filePaths);
+    const filePath = codeMap.get(code);
+
+    if (!filePath) {
+      // 短链无效：跳回首页
+      res.redirect(302, '/');
+      return;
+    }
+
+    // 记录短链访问次数（与文章访问量独立统计）
+    try {
+      require('./routes/api').recordShortlinkView(statsFilePath, code, filePath);
+    } catch (e) {
+      console.error('❌ 记录短链访问失败:', e.message);
+    }
+
+    // 按 SPA 约定编码：保留 / 不编码，仅编码各路径段，跳转后 URL 更易读且与站内导航一致
+    const encodedPath = filePath.split('/').map(part => encodeURIComponent(part)).join('/');
+    res.redirect(302, `/post/${encodedPath}`);
+  } catch (error) {
+    console.error('❌ 短链跳转失败:', error.message);
+    res.redirect(302, '/');
+  }
 });
 
 // 文章详情页 - 支持 SSR
