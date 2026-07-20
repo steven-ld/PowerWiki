@@ -13,6 +13,7 @@ const fs = require('fs-extra');
 const { parseMarkdown } = require('../utils/markdownParser');
 const seoHelper = require('../utils/seoHelper');
 const cacheManager = require('../utils/cacheManager');
+const { generateCode } = require('../utils/shortlink');
 const { t } = require('../config/i18n');
 
 /**
@@ -268,6 +269,28 @@ function recordPostView(statsFilePath, filePath, req) {
 }
 
 /**
+ * 记录短链访问次数
+ * @param {string} statsFilePath - 统计文件路径
+ * @param {string} code - 短链 code
+ * @param {string} filePath - 短链指向的文章路径
+ * @returns {number} 该短链的累计访问次数
+ */
+function recordShortlinkView(statsFilePath, code, filePath) {
+  const stats = readStats(statsFilePath);
+  stats.shortlinkViews = stats.shortlinkViews || {};
+
+  const entry = stats.shortlinkViews[code] || { count: 0, filePath };
+  entry.count += 1;
+  // 始终记录最新指向的文章路径（文件重命名后 code 会变，这里仅做展示用）
+  entry.filePath = filePath;
+  stats.shortlinkViews[code] = entry;
+
+  saveStats(statsFilePath, stats);
+
+  return entry.count;
+}
+
+/**
  * 创建 API 路由
  * @param {Object} options - 选项
  * @param {Object} options.config - 网站配置
@@ -367,6 +390,31 @@ function createApiRoutes(options) {
     } catch (error) {
       console.error(`❌ ${t('stats.getPostFailed')}:`, error);
       res.status(404).json({ error: t('stats.postNotFound') });
+    }
+  });
+
+  // API: 获取指定文章的短链信息（供前端「分享」按钮使用）
+  router.get('/shortlink/*', async (req, res) => {
+    try {
+      let filePath = req.params[0];
+      try {
+        filePath = decodeURIComponent(filePath);
+      } catch (e) {
+        // 解码失败则使用原始路径
+      }
+
+      if (!filePath) {
+        return res.status(400).json({ error: 'filePath is required' });
+      }
+
+      const code = generateCode(filePath);
+      const baseUrl = config.siteUrl || `${req.protocol}://${req.get('host')}`;
+      const shortUrl = `${baseUrl}/s/${code}`;
+
+      res.json({ code, shortUrl, filePath });
+    } catch (error) {
+      console.error(`❌ ${t('stats.getShortlinkFailed')}:`, error);
+      res.status(500).json({ error: error.message });
     }
   });
 
@@ -622,6 +670,17 @@ function createApiRoutes(options) {
       const retentionRate = totalUsers > 0 ? ((returningUserCount / totalUsers) * 100).toFixed(1) : 0;
       const avgDepth = totalUsers > 0 ? (Object.values(ipStats).reduce((sum, user) => sum + user.posts, 0) / totalUsers).toFixed(1) : 0;
 
+      // 短链访问统计
+      const shortlinkViews = stats.shortlinkViews || {};
+      const shortlinkStatsArray = Object.entries(shortlinkViews)
+        .map(([code, info]) => ({
+          code,
+          filePath: info.filePath || '',
+          count: info.count || 0
+        }))
+        .sort((a, b) => b.count - a.count);
+      const totalShortlinkViews = shortlinkStatsArray.reduce((sum, item) => sum + item.count, 0);
+
       res.json({
         summary: {
           totalViews: stats.totalViews,
@@ -630,10 +689,12 @@ function createApiRoutes(options) {
           totalRecords: accessLog.length,
           returningUsers: returningUserCount,
           retentionRate,
-          avgDepth
+          avgDepth,
+          totalShortlinkViews
         },
         ipStats: ipStatsArray,
         postStats: postStatsArray,
+        shortlinkStats: shortlinkStatsArray,
         dateChart: dateChartData,
         hourChart: hourChartData,
         browserChart: browserChartData,
@@ -695,4 +756,4 @@ function createApiRoutes(options) {
   return router;
 }
 
-module.exports = { createApiRoutes, recordPostView, readStats, saveStats };
+module.exports = { createApiRoutes, recordPostView, recordShortlinkView, readStats, saveStats };

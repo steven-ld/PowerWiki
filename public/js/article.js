@@ -10,6 +10,7 @@ const siteFooter = document.getElementById('siteFooter');
 const copyDocBtn = document.getElementById('copyDocBtn');
 const rawToggleBtn = document.getElementById('rawToggleBtn');
 const rawBody = document.getElementById('rawBody');
+const shareBtn = document.getElementById('shareBtn');
 
 // 原始文档切换状态
 let isRawView = false;
@@ -78,6 +79,41 @@ if (rawToggleBtn) {
       if (rawBtnText) rawBtnText.textContent = i18n.t('client.showRaw');
       btn.setAttribute('title', i18n.t('client.showRaw'));
       if (tocSidebar) tocSidebar.style.display = tocPrevDisplay;
+    }
+  });
+}
+
+// 分享按钮事件（生成文章短链并复制到剪贴板）
+if (shareBtn) {
+  shareBtn.addEventListener('click', async () => {
+    if (!currentPost || !currentPost.path) return;
+
+    const btn = shareBtn;
+    const btnText = btn.querySelector('span');
+    const originalText = btnText ? btnText.textContent : '';
+
+    try {
+      // 向后端请求该文章的固定短链
+      const response = await fetch(`/api/shortlink/${encodePath(currentPost.path)}`);
+      if (!response.ok) {
+        throw new Error('shortlink request failed');
+      }
+      const data = await response.json();
+      const shortUrl = data.shortUrl;
+
+      await navigator.clipboard.writeText(shortUrl);
+
+      btn.classList.add('copied');
+      if (btnText) btnText.textContent = '✓ ' + i18n.t('client.shareCopied');
+      showNotification(i18n.t('client.shareCopied') + ': ' + shortUrl, 'success');
+
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        if (btnText) btnText.textContent = originalText;
+      }, 2000);
+    } catch (error) {
+      console.error('生成短链失败:', error);
+      showNotification(i18n.t('client.shareFailed') + ': ' + error.message, 'error');
     }
   });
 }
@@ -367,6 +403,14 @@ function renderPost(post) {
   // 检查文件类型
   const filePath = post.path;
   const fileType = post.type || (filePath.endsWith('.pdf') ? 'pdf' : 'markdown');
+
+  // 分享按钮对 Markdown 和 PDF 均可用
+  if (shareBtn) {
+    shareBtn.style.display = 'inline-flex';
+    shareBtn.classList.remove('copied');
+    const shareBtnText = shareBtn.querySelector('span');
+    if (shareBtnText) shareBtnText.textContent = i18n.t('client.share');
+  }
 
   if (fileType === 'pdf') {
     // PDF 文件：隐藏按钮
