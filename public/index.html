@@ -118,9 +118,23 @@
                                     <circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/>
                                 </svg>
                             </span>
+                            <button class="copy-doc-btn" id="copyDocBtn" data-i18n-title="client.copyDoc">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <rect x="3.5" y="3.5" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.2"/>
+                                    <path d="M1.5 10.5V3a1.5 1.5 0 0 1 1.5-1.5h7.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                                </svg>
+                                <span data-i18n="client.copyDoc">复制</span>
+                            </button>
+                            <button class="raw-toggle-btn" id="rawToggleBtn" data-i18n-title="client.showRaw">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <path d="M3 3h8M3 7h8M3 11h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                                </svg>
+                                <span data-i18n="client.showRaw">原始</span>
+                            </button>
                         </div>
                     </header>
                     <div id="postBody" class="markdown-body"></div>
+                    <pre id="rawBody" class="raw-markdown-view" style="display: none;"></pre>
                 </article>
             </div>
         </main>

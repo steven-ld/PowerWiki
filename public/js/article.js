@@ -7,6 +7,80 @@ const postFileName = document.getElementById('postFileName');
 const postSize = document.getElementById('postSize');
 const siteHeader = document.getElementById('siteHeader');
 const siteFooter = document.getElementById('siteFooter');
+const copyDocBtn = document.getElementById('copyDocBtn');
+const rawToggleBtn = document.getElementById('rawToggleBtn');
+const rawBody = document.getElementById('rawBody');
+
+// 原始文档切换状态
+let isRawView = false;
+// 记录进入原始视图前目录栏的显示状态，切回时还原
+let tocPrevDisplay = '';
+
+// 复制文档按钮事件（复制原始 Markdown 内容）
+if (copyDocBtn) {
+  copyDocBtn.addEventListener('click', async () => {
+    if (!currentPost || !currentPost.path) return;
+
+    const btn = copyDocBtn;
+    const btnText = btn.querySelector('span');
+    const originalText = btnText ? btnText.textContent : '';
+
+    try {
+      const rawContent = currentPost.raw || '';
+      await navigator.clipboard.writeText(rawContent);
+
+      btn.classList.add('copied');
+      if (btnText) btnText.textContent = '✓ ' + i18n.t('client.copied');
+      showNotification(i18n.t('client.copied'), 'success');
+
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        if (btnText) btnText.textContent = originalText;
+      }, 2000);
+    } catch (error) {
+      console.error('复制失败:', error);
+      showNotification(i18n.t('client.copyFailed') + ': ' + error.message, 'error');
+    }
+  });
+}
+
+// 原始文档切换按钮事件（渲染视图 / 原始 Markdown 之间显隐切换，
+// 不重建 DOM，避免代码复制、图片放大等已绑定事件丢失）
+if (rawToggleBtn) {
+  rawToggleBtn.addEventListener('click', () => {
+    if (!currentPost) return;
+
+    isRawView = !isRawView;
+    const btn = rawToggleBtn;
+    const rawBtnText = btn.querySelector('span');
+    const tocSidebar = document.getElementById('tocSidebar');
+
+    if (isRawView) {
+      // 填充并显示原始 Markdown，仅隐藏渲染视图（保留其 DOM 与事件）
+      if (rawBody) {
+        rawBody.textContent = currentPost.raw || '';
+        rawBody.style.display = 'block';
+      }
+      postBody.style.display = 'none';
+      btn.classList.add('active');
+      if (rawBtnText) rawBtnText.textContent = i18n.t('client.showRendered');
+      btn.setAttribute('title', i18n.t('client.showRendered'));
+      // 隐藏目录，记录原显示状态以便还原
+      if (tocSidebar) {
+        tocPrevDisplay = tocSidebar.style.display;
+        tocSidebar.style.display = 'none';
+      }
+    } else {
+      // 直接恢复原有渲染视图，其代码复制/图片放大等事件仍有效
+      if (rawBody) rawBody.style.display = 'none';
+      postBody.style.display = '';
+      btn.classList.remove('active');
+      if (rawBtnText) rawBtnText.textContent = i18n.t('client.showRaw');
+      btn.setAttribute('title', i18n.t('client.showRaw'));
+      if (tocSidebar) tocSidebar.style.display = tocPrevDisplay;
+    }
+  });
+}
 
 // 加载网站配置和模板
 async function loadConfig() {
@@ -257,6 +331,11 @@ async function loadPost(filePath) {
 // 渲染文章
 function renderPost(post) {
 
+  // 复位视图切换状态：回到渲染视图并隐藏原始视图（防止上一篇残留）
+  isRawView = false;
+  if (rawBody) rawBody.style.display = 'none';
+  postBody.style.display = '';
+
   // 显示文件名（从路径中提取）
   const fileName = post.path.split('/').pop().replace(/\.(md|markdown|pdf)$/i, '');
   if (postFileName) {
@@ -290,6 +369,10 @@ function renderPost(post) {
   const fileType = post.type || (filePath.endsWith('.pdf') ? 'pdf' : 'markdown');
 
   if (fileType === 'pdf') {
+    // PDF 文件：隐藏按钮
+    if (copyDocBtn) copyDocBtn.style.display = 'none';
+    if (rawToggleBtn) rawToggleBtn.style.display = 'none';
+
     // PDF 文件：渲染成图片，无任何控件
     const pdfUrl = `/api/pdf/${encodePath(filePath)}`;
     postBody.innerHTML = `<div class="pdf-pages" id="pdfPages"></div>`;
@@ -303,6 +386,16 @@ function renderPost(post) {
       tocSidebar.style.display = 'none';
     }
   } else {
+    // Markdown 文件：显示按钮，重置状态
+    if (copyDocBtn) copyDocBtn.style.display = 'inline-flex';
+    if (rawToggleBtn) {
+      rawToggleBtn.style.display = 'inline-flex';
+      rawToggleBtn.classList.remove('active');
+      rawToggleBtn.setAttribute('title', i18n.t('client.showRaw'));
+      const rawBtnText = rawToggleBtn.querySelector('span');
+      if (rawBtnText) rawBtnText.textContent = i18n.t('client.showRaw');
+    }
+
     // Markdown 文件：正常渲染
     postBody.innerHTML = post.html;
 
