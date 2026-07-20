@@ -9,10 +9,12 @@ const siteHeader = document.getElementById('siteHeader');
 const siteFooter = document.getElementById('siteFooter');
 const copyDocBtn = document.getElementById('copyDocBtn');
 const rawToggleBtn = document.getElementById('rawToggleBtn');
+const rawBody = document.getElementById('rawBody');
 
 // 原始文档切换状态
 let isRawView = false;
-let renderedHtml = '';
+// 记录进入原始视图前目录栏的显示状态，切回时还原
+let tocPrevDisplay = '';
 
 // 复制文档按钮事件（复制原始 Markdown 内容）
 if (copyDocBtn) {
@@ -42,40 +44,40 @@ if (copyDocBtn) {
   });
 }
 
-// 原始文档切换按钮事件
+// 原始文档切换按钮事件（渲染视图 / 原始 Markdown 之间显隐切换，
+// 不重建 DOM，避免代码复制、图片放大等已绑定事件丢失）
 if (rawToggleBtn) {
   rawToggleBtn.addEventListener('click', () => {
     if (!currentPost) return;
 
     isRawView = !isRawView;
     const btn = rawToggleBtn;
+    const rawBtnText = btn.querySelector('span');
+    const tocSidebar = document.getElementById('tocSidebar');
 
     if (isRawView) {
-      // 保存当前完整渲染状态（包含更新时间和许可证）
-      renderedHtml = postBody.innerHTML;
-      // 切换到原始 Markdown 视图
-      const rawContent = currentPost.raw || '';
-      postBody.innerHTML = `<pre class="raw-markdown-view">${escapeHtml(rawContent)}</pre>`;
+      // 填充并显示原始 Markdown，仅隐藏渲染视图（保留其 DOM 与事件）
+      if (rawBody) {
+        rawBody.textContent = currentPost.raw || '';
+        rawBody.style.display = 'block';
+      }
+      postBody.style.display = 'none';
       btn.classList.add('active');
-      const rawBtnText = btn.querySelector('span');
       if (rawBtnText) rawBtnText.textContent = i18n.t('client.showRendered');
-      // 隐藏目录
-      const tocSidebar = document.getElementById('tocSidebar');
-      if (tocSidebar) tocSidebar.style.display = 'none';
+      btn.setAttribute('title', i18n.t('client.showRendered'));
+      // 隐藏目录，记录原显示状态以便还原
+      if (tocSidebar) {
+        tocPrevDisplay = tocSidebar.style.display;
+        tocSidebar.style.display = 'none';
+      }
     } else {
-      // 切换到渲染视图
-      postBody.innerHTML = renderedHtml;
+      // 直接恢复原有渲染视图，其代码复制/图片放大等事件仍有效
+      if (rawBody) rawBody.style.display = 'none';
+      postBody.style.display = '';
       btn.classList.remove('active');
-      const rawBtnText = btn.querySelector('span');
       if (rawBtnText) rawBtnText.textContent = i18n.t('client.showRaw');
-      // 重新初始化渲染视图的功能
-      addCopyButtonsToCodeBlocks();
-      addImageZoomFeature();
-      renderMermaidBlocks();
-      const hasTOC = generateTOC();
-      const tocSidebar = document.getElementById('tocSidebar');
-      if (tocSidebar) tocSidebar.style.display = hasTOC ? 'flex' : 'none';
-      if (hasTOC) setupTOCScroll();
+      btn.setAttribute('title', i18n.t('client.showRaw'));
+      if (tocSidebar) tocSidebar.style.display = tocPrevDisplay;
     }
   });
 }
@@ -329,6 +331,11 @@ async function loadPost(filePath) {
 // 渲染文章
 function renderPost(post) {
 
+  // 复位视图切换状态：回到渲染视图并隐藏原始视图（防止上一篇残留）
+  isRawView = false;
+  if (rawBody) rawBody.style.display = 'none';
+  postBody.style.display = '';
+
   // 显示文件名（从路径中提取）
   const fileName = post.path.split('/').pop().replace(/\.(md|markdown|pdf)$/i, '');
   if (postFileName) {
@@ -384,14 +391,13 @@ function renderPost(post) {
     if (rawToggleBtn) {
       rawToggleBtn.style.display = 'inline-flex';
       rawToggleBtn.classList.remove('active');
+      rawToggleBtn.setAttribute('title', i18n.t('client.showRaw'));
       const rawBtnText = rawToggleBtn.querySelector('span');
       if (rawBtnText) rawBtnText.textContent = i18n.t('client.showRaw');
     }
-    isRawView = false;
 
     // Markdown 文件：正常渲染
     postBody.innerHTML = post.html;
-    renderedHtml = post.html;
 
     // 为代码块添加复制按钮
     addCopyButtonsToCodeBlocks();
