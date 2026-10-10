@@ -24,12 +24,32 @@ const { buildCodeMap } = require('./utils/shortlink');
 const { createApiRoutes } = require('./routes/api');
 const { createApiFeedRoutes } = require('./routes/feeds');
 const { createStaticRoutes } = require('./routes/static');
+const { createAssetManager } = require('./utils/assetManager');
 
 const app = express();
+const publicDir = path.join(__dirname, '..', 'public');
+const pdfDir = path.join(__dirname, '..', 'node_modules', 'pdfjs-dist');
+const assets = createAssetManager(publicDir, pdfDir);
+
+app.use((req, res, next) => {
+  const send = res.send;
+  res.send = function(body) {
+    if (typeof body === 'string' && /^<!DOCTYPE html>/i.test(body)) body = assets.versionHtml(body);
+    return send.call(this, body);
+  };
+  next();
+});
 
 // 统计文件路径
 const statsFilePath = path.join(env.DATA_DIR, '.stats.json');
-const accessLogFilePath = path.join(env.DATA_DIR, '.access-log.json');
+const statsStore = require('./utils/statsStore');
+statsStore.read(statsFilePath, { totalViews: 0, postViews: {} });
+statsStore.read(path.join(env.DATA_DIR, '.access-log.json'), []);
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, async () => {
+    try { await statsStore.flush(); } finally { process.exit(0); }
+  });
+}
 
 // 中间件
 app.use(compression());
@@ -169,7 +189,7 @@ app.get('/', async (req, res) => {
     res.send(html);
   } catch (error) {
     console.error('[i18n] 注入翻译失败:', error);
-    res.sendFile(indexHtmlPath);
+    res.send(fs.readFileSync(indexHtmlPath, 'utf8'));
   }
 });
 
@@ -180,8 +200,8 @@ app.get('/api/i18n', (req, res) => {
 });
 
 // 静态文件中间件（放在首页路由之后，禁用 index.html 自动处理）
-app.use(express.static('public', { index: false }));
-app.use('/pdfjs', express.static(path.join(__dirname, '..', 'node_modules', 'pdfjs-dist')));
+app.use(express.static(publicDir, { index: false, setHeaders: assets.setHeaders }));
+app.use('/pdfjs', express.static(pdfDir, { setHeaders: assets.setHeaders }));
 
 /**
  * 读取模板文件
@@ -270,6 +290,10 @@ function showProgress(message, progress = null) {
   }
 }
 
+function invalidateContentCaches() {
+  ['posts', 'post', 'config', 'rss', 'sitemap'].forEach(type => cacheManager.delete(type));
+}
+
 /**
  * 初始化并同步 Git 仓库
  */
@@ -287,14 +311,14 @@ async function initRepo() {
 
     if (result.updated) {
       console.log(`✅ ${t('git.syncComplete')}`);
-      cacheManager.delete('posts');
-      cacheManager.delete('config');
+      invalidateContentCaches();
       console.log(`🗑️  ${t('cache.cleared')}`);
     } else {
       console.log(`✅ ${t('git.upToDate')}`);
     }
     repoInitialized = true;
     cacheManager.delete('config');
+    await apiRoutes.warmPosts().catch(error => console.error('目录预热失败:', error.message));
   } catch (error) {
     console.error(`❌ ${t('error.initRepoFailed')}:`, error.message);
     console.error(`💡 ${t('error.initRepoFailedTip')}`);
@@ -307,18 +331,20 @@ async function initRepo() {
 /**
  * 启动自动同步任务
  */
+let autoSyncTimer;
 function startAutoSync() {
+  if (autoSyncTimer) clearInterval(autoSyncTimer);
   const interval = config.autoSyncInterval || 180000;
   console.log(`🔄 ${t('git.autoSyncEnabled')} ${interval / 60000} ${t('git.minutes')}`);
 
-  setInterval(async () => {
+  autoSyncTimer = setInterval(async () => {
     if (repoInitializing || gitManager.isOperating) {
       console.log(`⏸️  ${t('error.skipSyncGitOperating')}`);
       return;
     }
 
     if (!repoInitialized) {
-      console.log(`⏸️  ${t('error.skipSyncNotInitialized')}`);
+      await initRepo();
       return;
     }
 
@@ -328,8 +354,8 @@ function startAutoSync() {
       const result = await gitManager.cloneOrUpdate(t);
       if (result.updated) {
         console.log(`⏰ [${new Date().toLocaleString()}] ${t('git.syncComplete')}`);
-        cacheManager.delete('posts');
-        cacheManager.delete('config');
+        invalidateContentCaches();
+        await apiRoutes.warmPosts();
         console.log(`🗑️  ${t('cache.cleared')}`);
       }
     } catch (error) {
@@ -342,90 +368,36 @@ function startAutoSync() {
   console.log(`🔄 ${t('git.autoSyncEnabled')}, ${t('git.interval')}: ${interval / 1000}${t('git.seconds')}`);
 }
 
-/**
- * 记录访问日志
- */
-function readAccessLog() {
+// 配置变化才失效目录；普通请求和定时检查不重建目录。
+let configReloadTimer;
+async function reloadConfig() {
+  if (repoInitializing || gitManager.isOperating) {
+    configReloadTimer = setTimeout(reloadConfig, 500);
+    return;
+  }
   try {
-    if (fs.existsSync(accessLogFilePath)) {
-      const data = fs.readFileSync(accessLogFilePath, 'utf-8');
-      return JSON.parse(data);
-    }
+    const next = JSON.parse(await fs.readFile(env.CONFIG_PATH, 'utf8'));
+    if (typeof next.gitRepo !== 'string' || !next.gitRepo) throw new Error('gitRepo is required');
+    const repositoryChanged = next.gitRepo !== config.gitRepo || next.repoBranch !== config.repoBranch;
+    if (repositoryChanged) throw new Error('修改 Git 仓库或分支后请重启服务');
+    next.pages = { home: '', about: '', ...next.pages };
+    const port = config.port; // 监听端口变化在下次重启时生效。
+    Object.keys(config).forEach(key => delete config[key]);
+    Object.assign(config, next, { port });
+    gitManager.invalidateFileLists();
+    invalidateContentCaches();
+    await apiRoutes.warmPosts();
+    startAutoSync();
+    console.log('✅ 配置已重新加载，内容缓存已失效');
   } catch (error) {
-    console.error(`❌ ${t('error.readAccessLogFailed')}:`, error);
-  }
-  return [];
-}
-
-function saveAccessLog(log) {
-  try {
-    const maxRecords = 10000;
-    const trimmedLog = log.slice(-maxRecords);
-    fs.writeFileSync(accessLogFilePath, JSON.stringify(trimmedLog, null, 2), 'utf-8');
-  } catch (error) {
-    console.error(`❌ ${t('error.saveAccessLogFailed')}:`, error);
+    console.error('❌ 配置重新加载失败:', error.message);
   }
 }
-
-function getClientIP(req) {
-  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-    req.headers['x-real-ip'] ||
-    req.connection?.remoteAddress ||
-    req.socket?.remoteAddress ||
-    req.ip ||
-    'unknown';
-}
-
-function parseBrowser(userAgent) {
-  if (!userAgent || userAgent === 'unknown') {
-    return '未知';
-  }
-
-  const ua = userAgent.toLowerCase();
-
-  if (ua.includes('micromessenger')) return '微信浏览器';
-  if (ua.includes('edg') || (ua.includes('edge') && !ua.includes('edgechromium'))) return 'Edge';
-  if (ua.includes('opr') || ua.includes('opera')) return 'Opera';
-  if (ua.includes('chrome') && !ua.includes('edg') && !ua.includes('opr')) return 'Chrome';
-  if (ua.includes('firefox')) return 'Firefox';
-  if (ua.includes('safari') && !ua.includes('chrome')) {
-    if (ua.includes('iphone') || ua.includes('ipad')) return 'Safari (iOS)';
-    return 'Safari';
-  }
-  if (ua.includes('msie') || ua.includes('trident')) return 'Internet Explorer';
-  if (ua.includes('mobile')) {
-    if (ua.includes('android')) return 'Android 浏览器';
-  }
-  if (ua.includes('bot') || ua.includes('crawler') || ua.includes('spider')) return '爬虫';
-
-  return '其他';
-}
-
-function recordPostView(filePath, req) {
-  const stats = require('./routes/api').readStats(statsFilePath);
-  stats.totalViews = (stats.totalViews || 0) + 1;
-  stats.postViews = stats.postViews || {};
-  stats.postViews[filePath] = (stats.postViews[filePath] || 0) + 1;
-  require('./routes/api').saveStats(statsFilePath, stats);
-
-  const accessLog = readAccessLog();
-  const ip = getClientIP(req);
-  const userAgent = req.headers['user-agent'] || 'unknown';
-  const browser = parseBrowser(userAgent);
-  const timestamp = new Date().toISOString();
-
-  accessLog.push({
-    timestamp,
-    ip,
-    filePath,
-    userAgent,
-    browser
-  });
-
-  saveAccessLog(accessLog);
-
-  return stats.postViews[filePath];
-}
+fs.watchFile(env.CONFIG_PATH, { interval: 1000 }, (current, previous) => {
+  if (current.mtimeMs === previous.mtimeMs && current.size === previous.size) return;
+  clearTimeout(configReloadTimer);
+  configReloadTimer = setTimeout(reloadConfig, 100);
+});
 
 // 注册 API 路由
 const apiOptions = {
@@ -435,7 +407,8 @@ const apiOptions = {
   readTemplate,
   renderTemplate
 };
-app.use('/api', createApiRoutes(apiOptions));
+const apiRoutes = createApiRoutes(apiOptions);
+app.use('/api', apiRoutes);
 app.use('/api', createStaticRoutes(apiOptions));
 
 // 注册 Feed 路由（RSS 和 Sitemap）
@@ -529,7 +502,7 @@ app.get('/post/*', async (req, res) => {
       }
 
       if (filePath.endsWith('.pdf')) {
-        res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+        res.send(fs.readFileSync(indexHtmlPath, 'utf8'));
         return;
       }
 
@@ -655,7 +628,7 @@ app.get('/post/*', async (req, res) => {
     }
   }
 
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  res.send(fs.readFileSync(indexHtmlPath, 'utf8'));
 });
 
 // 统计页面

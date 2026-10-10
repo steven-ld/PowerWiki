@@ -25,6 +25,13 @@ class GitManager {
     this.repoPath = path.join(localPath, this.repoName);
     this.isOperating = false; // 操作状态标志
     this.progressCallback = options.progressCallback || null; // 进度回调函数
+    this.fileLists = new Map();
+    this.contentVersion = 0;
+  }
+
+  invalidateFileLists() {
+    this.contentVersion++;
+    this.fileLists.clear();
   }
 
   extractRepoName(url) {
@@ -93,6 +100,8 @@ class GitManager {
     }
 
     this.isOperating = true;
+    let finishOperation;
+    this.operationFinished = new Promise(resolve => { finishOperation = resolve; });
     const translate = (key) => {
       const translations = {
         'git.cloning': '正在克隆仓库...',
@@ -150,6 +159,7 @@ class GitManager {
           if (hasUpdates) {
             this.showProgress('🔄 正在拉取更新...');
             await git.pull('origin', this.branch);
+            this.invalidateFileLists();
             this.showProgress('✅ 拉取完成');
             return { updated: true, isNew: false };
           } else {
@@ -214,18 +224,77 @@ class GitManager {
         });
       });
 
+      this.invalidateFileLists();
       return result;
     } catch (error) {
       console.error(`❌ ${t('git.operationFailed')}:`, error);
       throw error;
     } finally {
       this.isOperating = false;
+      this.operationFinished = null;
+      finishOperation();
     }
   }
 
   async getAllMarkdownFiles(mdPath = '') {
+    if (!this.fileLists.has(mdPath) && this.operationFinished) await this.operationFinished;
+    if (!this.fileLists.has(mdPath)) {
+      const pending = this.scanMarkdownFiles(mdPath);
+      this.fileLists.set(mdPath, pending);
+      pending.catch(() => {
+        if (this.fileLists.get(mdPath) === pending) this.fileLists.delete(mdPath);
+      });
+    }
+    return this.fileLists.get(mdPath);
+  }
+
+  async scanMarkdownFiles(mdPath = '') {
     const searchPath = mdPath ? path.join(this.repoPath, mdPath) : this.repoPath;
     const files = [];
+    const dates = new Map();
+    const renamed = new Set();
+    const merged = new Set();
+    const historyFiles = [];
+
+    // 一次读取历史，避免每篇文章串行启动两次 git log。
+    // NUL 分隔保留中文、空格及换行文件名；重命名的创建时间仍用 --follow。
+    try {
+      const log = await simpleGit(this.repoPath).raw([
+        'log', '--cc', '--format=%x00%ai', '--name-status', '-z', '--find-renames'
+      ]);
+      const tokens = log.split('\0');
+      let date;
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i].trim();
+        if (!token) continue;
+        if (/^\d{4}-\d{2}-\d{2} /.test(token)) {
+          date = new Date(token);
+          continue;
+        }
+        const oldPath = tokens[++i];
+        const filePath = /^[RC]\d+$/.test(token) ? tokens[++i] : oldPath;
+        if (!date || !filePath) continue;
+        const info = dates.get(filePath) || {};
+        if (!info.modified) info.modified = date;
+        if (/^A+$/.test(token)) info.created = date;
+        if (token.includes('R')) renamed.add(filePath);
+        dates.set(filePath, info);
+      }
+      // 合并可能丢弃某个分支的文件历史，全仓库日志无法执行逐路径简化。
+      // 仅对合并涉及的文件保留原查询语义，其余文件继续使用批量结果。
+      const mergeLog = await simpleGit(this.repoPath).raw([
+        'log', '--merges', '-m', '--format=%x00MERGE', '--name-status', '-z', '--find-renames'
+      ]);
+      const mergeTokens = mergeLog.split('\0');
+      for (let i = 0; i < mergeTokens.length; i++) {
+        const status = mergeTokens[i].trim();
+        if (!status || status === 'MERGE') continue;
+        merged.add(mergeTokens[++i]);
+        if (/^[RC]\d+$/.test(status)) merged.add(mergeTokens[++i]);
+      }
+    } catch (error) {
+      console.warn('⚠️ 无法批量读取 Git 时间，使用文件系统时间:', error.message);
+    }
 
     const scanDirectory = async (dir) => {
       const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -242,23 +311,36 @@ class GitManager {
           const relativePath = path.relative(this.repoPath, fullPath).replace(/\\/g, '/');
           const stats = await fs.stat(fullPath);
 
-          const gitCreated = await this.getFileCreatedTime(relativePath);
-          const gitModified = await this.getFileModifiedTime(relativePath);
-
-          files.push({
+          const info = dates.get(relativePath) || {};
+          const file = {
             path: relativePath,
             fullPath: fullPath,
             name: entry.name,
-            created: gitCreated || stats.birthtime,
-            modified: gitModified || stats.mtime,
+            created: info.created || stats.birthtime,
+            modified: info.modified || stats.mtime,
             size: stats.size,
             type: entry.name.endsWith('.pdf') ? 'pdf' : 'markdown'
-          });
+          };
+          files.push(file);
+          if (renamed.has(relativePath) || merged.has(relativePath)) historyFiles.push(file);
         }
       }
     };
 
     await scanDirectory(searchPath);
+    let historyIndex = 0;
+    // 最多四个 Git 子进程，避免大仓库合并历史造成串行等待或进程风暴。
+    await Promise.all(Array.from({ length: Math.min(2, historyFiles.length) }, async () => {
+      while (historyIndex < historyFiles.length) {
+        const file = historyFiles[historyIndex++];
+        const [created, modified] = await Promise.all([
+          this.getFileCreatedTime(file.path),
+          merged.has(file.path) ? this.getFileModifiedTime(file.path) : null
+        ]);
+        file.created = created || file.created;
+        file.modified = modified || file.modified;
+      }
+    }));
     return files.sort((a, b) => {
       const timeA = new Date(a.modified).getTime();
       const timeB = new Date(b.modified).getTime();

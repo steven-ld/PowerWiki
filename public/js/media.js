@@ -55,61 +55,146 @@ async function updateStatsInBackground() {
   }
 }
 
-// 渲染 PDF 为图片（无任何控件，200dpi 高清）
+// PDF 只渲染可见页及附近页面；离开视口后释放高清画布。
+let activePdf = null;
+function stopPdfRendering() {
+  if (!activePdf) return;
+  const state = activePdf;
+  activePdf = null;
+  state.cancelled = true;
+  state.observer?.disconnect();
+  state.tasks.forEach(task => task.cancel());
+  state.slots.forEach(slot => {
+    if (slot.canvas) { slot.canvas.width = 0; slot.canvas.height = 0; }
+  });
+  if (state.loadingTask) state.loadingTask.destroy().catch(() => {});
+}
+
 async function renderPdfAsImages(pdfUrl) {
+  stopPdfRendering();
   const pagesContainer = document.getElementById('pdfPages');
   if (!pagesContainer) return;
-
+  const state = { cancelled: false, tasks: new Set(), slots: [], queue: [], running: 0 };
+  activePdf = state;
   pagesContainer.innerHTML = `<div class="pdf-loading">${i18n.t('client.pdfLoading')}</div>`;
 
   try {
-    // 动态导入 PDF.js
-    const pdfjsLib = await import('/pdfjs/build/pdf.min.mjs');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/build/pdf.worker.min.mjs';
-
-    // 加载 PDF
-    const pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
+    const pdfjsLib = await import(window.__PDFJS_URLS__?.module || '/pdfjs/build/pdf.min.mjs');
+    if (state.cancelled) return;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = window.__PDFJS_URLS__?.worker || '/pdfjs/build/pdf.worker.min.mjs';
+    state.loadingTask = pdfjsLib.getDocument(pdfUrl);
+    const pdfDoc = await state.loadingTask.promise;
+    if (state.cancelled) return;
+    const firstPage = await pdfDoc.getPage(1);
+    if (state.cancelled) return;
+    const firstViewport = firstPage.getViewport({ scale: 1 });
+    const containerWidth = Math.max(1, (pagesContainer.clientWidth || 800) - 20);
+    const estimatedWidth = Math.min(containerWidth, firstViewport.width * 2);
     pagesContainer.innerHTML = '';
 
-    // 计算缩放比例（适应容器宽度）
-    const containerWidth = pagesContainer.clientWidth || 800;
-    // 300dpi / 72dpi ≈ 4.17，使用 4x 渲染以获得高清效果
-    const dpiScale = 4;
-
-    // 渲染每一页
-    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-      const page = await pdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 1 });
-
-      // 计算显示宽度
-      const displayWidth = Math.min(containerWidth - 20, viewport.width * 2);
-      const displayScale = displayWidth / viewport.width;
-
-      // 高分辨率渲染
-      const renderScale = displayScale * dpiScale;
-      const renderViewport = page.getViewport({ scale: renderScale });
-
-      const canvas = document.createElement('canvas');
-      canvas.className = 'pdf-page-img';
-      canvas.width = renderViewport.width;
-      canvas.height = renderViewport.height;
-      canvas.dataset.page = pageNum;
-      // 设置 CSS 显示尺寸（缩小到实际显示大小）
-      canvas.style.width = displayWidth + 'px';
-      canvas.style.height = (displayWidth / viewport.width * viewport.height) + 'px';
-
-      const context = canvas.getContext('2d');
-      await page.render({ canvasContext: context, viewport: renderViewport }).promise;
-
-      // 点击放大查看
-      canvas.addEventListener('click', () => {
-        openImageViewer(canvas.toDataURL('image/png'), pageNum, pdfDoc.numPages);
-      });
-
-      pagesContainer.appendChild(canvas);
+    function release(slot) {
+      if (slot.canvas) {
+        slot.canvas.width = 0;
+        slot.canvas.height = 0;
+        slot.canvas.remove();
+        slot.canvas = null;
+      }
+      slot.page?.cleanup();
+      slot.page = null;
     }
+
+    async function renderPage(slot) {
+      let task;
+      try {
+        const page = await pdfDoc.getPage(slot.number);
+        if (state.cancelled || !slot.visible) return;
+        slot.page = page;
+        const viewport = page.getViewport({ scale: 1 });
+        const displayWidth = Math.min(containerWidth, viewport.width * 2);
+        slot.element.style.width = `${displayWidth}px`;
+        slot.element.style.height = `${displayWidth / viewport.width * viewport.height}px`;
+        // 沿用 4 倍高清；仅为可见区域附近的页面分配画布。
+        const scale = displayWidth / viewport.width * 4;
+        const renderViewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        slot.canvas = canvas;
+        canvas.className = 'pdf-page-img';
+        canvas.width = Math.ceil(renderViewport.width);
+        canvas.height = Math.ceil(renderViewport.height);
+        canvas.style.width = `${displayWidth}px`;
+        canvas.style.height = slot.element.style.height;
+        canvas.dataset.page = slot.number;
+        task = page.render({ canvasContext: canvas.getContext('2d'), viewport: renderViewport });
+        slot.task = task;
+        state.tasks.add(task);
+        await task.promise;
+        if (state.cancelled || !slot.visible) { release(slot); return; }
+        canvas.addEventListener('click', () => {
+          openImageViewer(canvas.toDataURL('image/png'), slot.number, pdfDoc.numPages);
+        });
+        slot.element.appendChild(canvas);
+      } catch (error) {
+        release(slot);
+        if (!state.cancelled && error.name !== 'RenderingCancelledException') {
+          slot.failed = true;
+          slot.element.textContent = i18n.t('client.pdfLoadFailed');
+          console.error(i18n.t('client.pdfLoadFailed'), error);
+        }
+      } finally {
+        if (task) state.tasks.delete(task);
+        slot.task = null;
+        slot.pending = false;
+        state.running--;
+        if (slot.visible && !slot.canvas && !slot.failed && !state.cancelled) enqueue(slot);
+        pump();
+      }
+    }
+
+    function pump() {
+      while (!state.cancelled && state.running < 2 && state.queue.length) {
+        const slot = state.queue.shift();
+        if (!slot.visible) { slot.pending = false; continue; }
+        state.running++;
+        renderPage(slot);
+      }
+    }
+    function enqueue(slot) {
+      if (slot.pending || slot.canvas || slot.failed || state.cancelled) return;
+      slot.pending = true;
+      state.queue.push(slot);
+      pump();
+    }
+
+    const fragment = document.createDocumentFragment();
+    for (let number = 1; number <= pdfDoc.numPages; number++) {
+      const element = document.createElement('div');
+      element.style.width = `${estimatedWidth}px`;
+      element.style.height = `${estimatedWidth / firstViewport.width * firstViewport.height}px`;
+      element.dataset.page = number;
+      element.setAttribute('aria-label', i18n.tf('client.pageOf', number, pdfDoc.numPages));
+      state.slots.push({ number, element, visible: false, pending: false });
+      fragment.appendChild(element);
+    }
+    pagesContainer.appendChild(fragment);
+    if (typeof IntersectionObserver === 'undefined') {
+      state.slots.forEach(slot => { slot.visible = true; enqueue(slot); });
+      return;
+    }
+    state.observer = new IntersectionObserver(entries => {
+      if (state.cancelled) return;
+      entries.forEach(entry => {
+        const slot = state.slots[Number(entry.target.dataset.page) - 1];
+        slot.visible = entry.isIntersecting;
+        if (slot.visible) enqueue(slot);
+        else if (slot.task) slot.task.cancel();
+        else if (!slot.pending) release(slot);
+      });
+    }, { rootMargin: '600px 0px' });
+    state.slots.forEach(slot => state.observer.observe(slot.element));
   } catch (error) {
+    if (state.cancelled) return;
     console.error(i18n.t('client.pdfLoadFailed'), error);
+    stopPdfRendering();
     pagesContainer.innerHTML = `<div class="pdf-error">${i18n.t('client.pdfLoadFailed')}</div>`;
   }
 }

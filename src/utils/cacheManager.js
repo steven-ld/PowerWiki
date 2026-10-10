@@ -141,6 +141,6 @@ setInterval(() => {
   if (cleared > 0) {
     console.log(`🧹 ${t('cache.clearedExpiredItems', cleared)}`);
   }
-}, 10 * 60 * 1000);
+}, 10 * 60 * 1000).unref();
 
 module.exports = cacheManager;
