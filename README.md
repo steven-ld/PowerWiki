@@ -17,6 +17,36 @@ A modern Git-based Markdown wiki system with auto-sync, syntax highlighting, and
 
 ---
 
+## 📸 See PowerWiki in Action
+
+Screenshots from the [live demo](https://powerwiki.ga666666.cn/). The demo content is in Chinese; your wiki content comes from your own Git repository.
+
+### Your Git documents, ready to browse
+
+Browse nested folders on the left, read Markdown in the center, and jump between headings with the automatic table of contents on the right.
+
+![PowerWiki homepage with folder navigation and automatic table of contents](assets/screenshots/home.jpg)
+
+### Read and reuse technical documentation
+
+Code blocks, article metadata, and heading navigation share one reading view. Copy the document, switch to its raw Markdown, or share the article from the toolbar.
+
+![PowerWiki code example with article actions and heading navigation](assets/screenshots/code.jpg)
+
+### Turn Mermaid text into diagrams
+
+Render sequence diagrams directly inside your articles to explain interactions between users, browsers, and services.
+
+![Mermaid sequence diagram rendered inside a PowerWiki article](assets/screenshots/mermaid.jpg)
+
+### Switch to dark mode
+
+Use the theme toggle to read the same documentation with a dark background.
+
+![PowerWiki technical article in dark mode](assets/screenshots/dark-mode.jpg)
+
+---
+
 ## 💡 Design Philosophy
 
 PowerWiki was born from deep reflection on "knowledge management" and "technical writing". We believe in:
