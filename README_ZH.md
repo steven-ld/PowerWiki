@@ -17,6 +17,36 @@
 
 ---
 
+## 📸 界面与功能预览
+
+以下截图来自 [在线演示站](https://powerwiki.ga666666.cn/)。将自己的 Git 文档仓库接入后，即可使用同样的阅读界面。
+
+### Git 文档变成可浏览的知识库
+
+左侧按文件夹组织文档，中间展示 Markdown 正文，右侧自动生成文章目录，方便在长文中定位章节。
+
+![PowerWiki 首页：文件夹导航、Markdown 正文与自动目录](assets/screenshots/home.jpg)
+
+### 技术文档的阅读与复用
+
+代码块、文章信息和章节导航集中在同一页面。通过文章工具栏，可以复制全文、切换原始 Markdown 视图或分享文章。
+
+![PowerWiki 代码演示：文章工具栏与章节导航](assets/screenshots/code.jpg)
+
+### Mermaid 图表直接呈现在文章中
+
+用文本描述时序关系，直接在文章中展示用户、浏览器与服务之间的交互图，无需额外上传图表图片。
+
+![PowerWiki 中渲染的 Mermaid 时序图](assets/screenshots/mermaid.jpg)
+
+### 一键切换暗夜阅读
+
+通过顶部主题按钮切换深色背景，在同样的页面中继续阅读技术文档。
+
+![PowerWiki 暗夜模式下的技术文档](assets/screenshots/dark-mode.jpg)
+
+---
+
 ## 💡 设计理念
 
 PowerWiki 诞生于对「知识管理」与「技术写作」的深度思考。我们相信：
