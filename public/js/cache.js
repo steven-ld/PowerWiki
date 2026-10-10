@@ -6,10 +6,41 @@ const ClientCache = {
 
   // 默认缓存时间（毫秒）
   DEFAULT_TTL: {
-    posts: 10 * 60 * 1000,      // 文章列表：10分钟
-    post: 10 * 60 * 1000,        // 单篇文章：10分钟
-    config: 30 * 60 * 1000,      // 配置：30分钟
+    posts: Infinity,           // 内容缓存仅按服务器版本失效
+    post: Infinity,
+    config: Infinity,
     stats: 1 * 60 * 1000         // 统计数据：1分钟
+  },
+
+  version: null,
+  pendingVersion: null,
+
+  adoptVersion(version) {
+    if (!version) return false;
+    let previous = this.version;
+    try { previous = previous || localStorage.getItem('powerwiki_content_version'); } catch (_) {}
+    const changed = previous !== version;
+    if (changed) ['posts', 'post', 'config'].forEach(type => this.delete(type));
+    this.version = version;
+    try { localStorage.setItem('powerwiki_content_version', version); } catch (_) {}
+    return changed;
+  },
+
+  async ensureVersion() {
+    if (this.pendingVersion) return this.pendingVersion;
+    this.pendingVersion = (async () => {
+      try {
+        const response = await fetch('/api/version', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Content version unavailable');
+        const data = await response.json();
+        return this.adoptVersion(data.version);
+      } catch (error) {
+        try { this.version = this.version || localStorage.getItem('powerwiki_content_version'); } catch (_) {}
+        console.warn('内容版本检查失败，保留本地缓存:', error);
+        return false;
+      }
+    })();
+    try { return await this.pendingVersion; } finally { this.pendingVersion = null; }
   },
 
   /**
@@ -32,9 +63,10 @@ const ClientCache = {
       }
 
       const data = JSON.parse(cached);
+      if (['posts', 'post', 'config'].includes(type) && data.version !== this.version) return null;
 
       // 检查是否过期
-      if (Date.now() > data.expiresAt) {
+      if (data.expiresAt !== null && Date.now() > data.expiresAt) {
         localStorage.removeItem(key);
         return null;
       }
@@ -50,12 +82,18 @@ const ClientCache = {
    * 设置缓存
    */
   set(type, id = '', value, ttl = null) {
+    // JSON 解析期间版本可能已改变，旧响应不能写入新版本缓存。
+    const contentCache = ['posts', 'post', 'config'].includes(type);
+    const version = contentCache && value.version ? value.version : this.version;
+    if (contentCache && version !== this.version) return;
     try {
       const key = this.getKey(type, id);
-      const expiresAt = Date.now() + (ttl || this.DEFAULT_TTL[type] || 5 * 60 * 1000);
+      const duration = ttl || this.DEFAULT_TTL[type] || 5 * 60 * 1000;
+      const expiresAt = duration === Infinity ? null : Date.now() + duration;
 
       const data = {
         value,
+        version,
         expiresAt,
         createdAt: Date.now()
       };
@@ -69,8 +107,9 @@ const ClientCache = {
         // 重试一次
         try {
           const key = this.getKey(type, id);
-          const expiresAt = Date.now() + (ttl || this.DEFAULT_TTL[type] || 5 * 60 * 1000);
-          localStorage.setItem(key, JSON.stringify({ value, expiresAt, createdAt: Date.now() }));
+          const duration = ttl || this.DEFAULT_TTL[type] || 5 * 60 * 1000;
+          const expiresAt = duration === Infinity ? null : Date.now() + duration;
+          localStorage.setItem(key, JSON.stringify({ value, version, expiresAt, createdAt: Date.now() }));
         } catch (e) {
           console.error(i18n.t('client.cacheSetFailed'), e);
         }
@@ -124,7 +163,7 @@ const ClientCache = {
           const cached = localStorage.getItem(key);
           if (cached) {
             const data = JSON.parse(cached);
-            if (now > data.expiresAt) {
+            if (data.expiresAt !== null && now > data.expiresAt) {
               localStorage.removeItem(key);
               cleared++;
             }

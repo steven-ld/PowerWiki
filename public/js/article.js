@@ -135,6 +135,8 @@ async function loadConfig() {
     }
 
     const response = await fetch('/api/config');
+    if (!response.ok) throw new Error('Config unavailable');
+    ClientCache.adoptVersion(response.headers.get('X-Content-Version'));
     const config = await response.json();
 
     // 缓存配置
@@ -172,6 +174,8 @@ function checkAndReloadConfig() {
 
     try {
       const response = await fetch('/api/config');
+      if (!response.ok) throw new Error('Config unavailable');
+      ClientCache.adoptVersion(response.headers.get('X-Content-Version'));
       const config = await response.json();
 
       // 如果现在有首页内容了，说明仓库初始化完成，重新加载配置
@@ -327,6 +331,9 @@ function applyConfig(config) {
 // 加载单篇文章
 async function loadPost(filePath) {
   try {
+    if (await ClientCache.ensureVersion()) {
+      await Promise.all([loadConfig(), loadPosts()]);
+    }
     postView.classList.remove('active');
     homeView.classList.remove('active');
 
@@ -345,6 +352,7 @@ async function loadPost(filePath) {
       throw new Error('文章不存在');
     }
 
+    ClientCache.adoptVersion(response.headers.get('X-Content-Version'));
     const post = await response.json();
     currentPost = post;
 
@@ -366,6 +374,7 @@ async function loadPost(filePath) {
 
 // 渲染文章
 function renderPost(post) {
+  if (typeof stopPdfRendering === 'function') stopPdfRendering();
 
   // 复位视图切换状态：回到渲染视图并隐藏原始视图（防止上一篇残留）
   isRawView = false;
@@ -622,25 +631,14 @@ function renderPost(post) {
 // 后台更新文章（用于更新访问量等可能变化的数据）
 async function updatePostInBackground(filePath) {
   try {
-    const response = await fetch(`/api/post/${encodePath(filePath)}`);
-    if (response.ok) {
-      const post = await response.json();
-
-      // 只更新访问量，不重新渲染整个页面
-      if (post.viewCount !== undefined && currentPost && currentPost.path === filePath) {
-        currentPost.viewCount = post.viewCount;
-        const postViewCount = document.getElementById('postViewCount');
-        if (postViewCount) {
-          const existingText = postViewCount.querySelector('span.view-text');
-          if (existingText) {
-            existingText.textContent = post.viewCount;
-          }
-        }
-      }
-
-      // 更新缓存
-      ClientCache.set('post', filePath, post);
-    }
+    const response = await fetch(`/api/view/${encodePath(filePath)}`, { method: 'POST' });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!currentPost || currentPost.path !== filePath) return;
+    currentPost.viewCount = data.viewCount;
+    const existingText = document.getElementById('postViewCount')?.querySelector('span.view-text');
+    if (existingText) existingText.textContent = data.viewCount;
+    ClientCache.set('post', filePath, currentPost);
   } catch (error) {
     console.warn(i18n.t('client.backgroundUpdatePostFailed'), error);
   }

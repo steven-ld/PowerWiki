@@ -29,3 +29,7 @@ Thumbs.db
 # Optional lock file
 package-lock.json
 .access-log.json
+.stats.json.invalid-*.bak
+.access-log.json.invalid-*.bak
+.stats.json.*.tmp
+.access-log.json.*.tmp

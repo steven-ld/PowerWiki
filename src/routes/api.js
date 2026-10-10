@@ -8,13 +8,13 @@
  */
 
 const express = require('express');
-const path = require('path');
-const fs = require('fs-extra');
 const { parseMarkdown } = require('../utils/markdownParser');
 const seoHelper = require('../utils/seoHelper');
 const cacheManager = require('../utils/cacheManager');
 const { generateCode } = require('../utils/shortlink');
 const { t } = require('../config/i18n');
+const { createHash, randomBytes } = require('crypto');
+const statsStore = require('../utils/statsStore');
 
 /**
  * 构建目录树结构
@@ -144,26 +144,11 @@ function buildDirectoryTree(files, config) {
  * 读取统计数据
  */
 function readStats(statsFilePath) {
-  try {
-    if (fs.existsSync(statsFilePath)) {
-      const data = fs.readFileSync(statsFilePath, 'utf-8');
-      return JSON.parse(data);
-    }
-  } catch (error) {
-    console.error(`❌ ${t('stats.readStatsFailed')}:`, error);
-  }
-  return { totalViews: 0, postViews: {} };
+  return statsStore.read(statsFilePath, { totalViews: 0, postViews: {} });
 }
 
-/**
- * 保存统计数据
- */
 function saveStats(statsFilePath, stats) {
-  try {
-    fs.writeFileSync(statsFilePath, JSON.stringify(stats, null, 2), 'utf-8');
-  } catch (error) {
-    console.error(`❌ ${t('stats.saveStatsFailed')}:`, error);
-  }
+  statsStore.save(statsFilePath, stats);
 }
 
 /**
@@ -210,28 +195,12 @@ function getClientIP(req) {
  * 读取访问日志
  */
 function readAccessLog(accessLogFilePath) {
-  try {
-    if (fs.existsSync(accessLogFilePath)) {
-      const data = fs.readFileSync(accessLogFilePath, 'utf-8');
-      return JSON.parse(data);
-    }
-  } catch (error) {
-    console.error(`❌ ${t('stats.readAccessLogFailed')}:`, error);
-  }
-  return [];
+  return statsStore.read(accessLogFilePath, []);
 }
 
-/**
- * 保存访问日志
- */
 function saveAccessLog(accessLogFilePath, log) {
-  try {
-    const maxRecords = 10000;
-    const trimmedLog = log.slice(-maxRecords);
-    fs.writeFileSync(accessLogFilePath, JSON.stringify(trimmedLog, null, 2), 'utf-8');
-  } catch (error) {
-    console.error(`❌ ${t('stats.saveAccessLogFailed')}:`, error);
-  }
+  if (log.length > 10000) log.splice(0, log.length - 10000);
+  statsStore.save(accessLogFilePath, log);
 }
 
 /**
@@ -302,25 +271,50 @@ function recordShortlinkView(statsFilePath, code, filePath) {
 function createApiRoutes(options) {
   const router = express.Router();
   const { config, gitManager, statsFilePath, readTemplate, renderTemplate } = options;
+  const instanceId = randomBytes(16).toString('hex');
+  const getVersion = () => createHash('sha256')
+    .update(`${instanceId}:${gitManager.contentVersion}:${JSON.stringify(config)}`)
+    .digest('hex');
+  let pendingPosts;
 
-  // API: 获取所有文章列表
+  router.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('X-Content-Version', getVersion());
+    next();
+  });
+  router.get('/version', (req, res) => res.json({ version: getVersion() }));
+
+  async function warmPosts() {
+    const version = getVersion();
+    const cached = cacheManager.get('posts');
+    if (cached && cached.version === version) return cached;
+    if (pendingPosts && pendingPosts.version === version) return pendingPosts.promise;
+    const promise = (async () => {
+      const files = await gitManager.getAllMarkdownFiles(config.mdPath);
+      if (version !== getVersion()) return warmPosts();
+      const result = { tree: buildDirectoryTree(files, config), flat: files, version };
+      if (version === getVersion()) cacheManager.set('posts', '', result, Infinity);
+      return result;
+    })();
+    pendingPosts = { version, promise };
+    try {
+      return await promise;
+    } finally {
+      if (pendingPosts && pendingPosts.promise === promise) pendingPosts = null;
+    }
+  }
+  router.warmPosts = warmPosts;
+
+  // 未变化时只返回 304，避免下载完整目录。
   router.get('/posts', async (req, res) => {
     try {
-      const cached = cacheManager.get('posts');
-      if (cached) {
-        res.json(cached);
-        return;
-      }
-
-      const files = await gitManager.getAllMarkdownFiles(config.mdPath);
-      const tree = buildDirectoryTree(files, config);
-      const result = { tree, flat: files };
-
-      cacheManager.set('posts', '', result, 10 * 60 * 1000);
+      const result = await warmPosts();
+      res.setHeader('X-Content-Version', result.version);
+      res.setHeader('ETag', `"${result.version}"`);
       res.json(result);
     } catch (error) {
       console.error(`❌ ${t('stats.getPostsFailed')}:`, error);
-      res.status(500).json({ error: error.message });
+      res.status(503).json({ error: error.message });
     }
   });
 
@@ -334,8 +328,10 @@ function createApiRoutes(options) {
         console.warn(`⚠️  ${t('static.pathDecodeFailed')}:`, filePath);
       }
 
-      const cached = cacheManager.get('post', filePath);
-      if (cached) {
+      const version = getVersion();
+      const cacheKey = filePath;
+      const cached = cacheManager.get('post', cacheKey);
+      if (cached && cached.version === version) {
         const viewCount = recordPostView(statsFilePath, filePath, req);
         cached.viewCount = viewCount;
         res.json(cached);
@@ -349,6 +345,7 @@ function createApiRoutes(options) {
         const fileName = fileInfo.name.replace(/\.pdf$/i, '');
 
         const result = {
+          version,
           type: 'pdf',
           title: fileName,
           fileInfo,
@@ -358,7 +355,7 @@ function createApiRoutes(options) {
           viewCount
         };
 
-        cacheManager.set('post', filePath, result, 15 * 60 * 1000);
+        if (version === getVersion()) cacheManager.set('post', cacheKey, result, Infinity);
         res.json(result);
       } else {
         const content = await gitManager.readMarkdownFile(filePath);
@@ -374,6 +371,7 @@ function createApiRoutes(options) {
 
         const result = {
           ...parsed,
+          version,
           type: 'markdown',
           title,
           html: optimizedHtml,
@@ -384,11 +382,24 @@ function createApiRoutes(options) {
           viewCount
         };
 
-        cacheManager.set('post', filePath, result, 10 * 60 * 1000);
+        if (version === getVersion()) cacheManager.set('post', cacheKey, result, Infinity);
         res.json(result);
       }
     } catch (error) {
       console.error(`❌ ${t('stats.getPostFailed')}:`, error);
+      res.status(404).json({ error: t('stats.postNotFound') });
+    }
+  });
+
+  router.post('/view/*', async (req, res) => {
+    const filePath = req.params[0];
+    try {
+      const cached = cacheManager.get('post', filePath);
+      if ((!cached || cached.version !== getVersion()) && !await gitManager.getFileInfo(filePath)) {
+        return res.status(404).json({ error: t('stats.postNotFound') });
+      }
+      res.json({ viewCount: recordPostView(statsFilePath, filePath, req) });
+    } catch (error) {
       res.status(404).json({ error: t('stats.postNotFound') });
     }
   });
@@ -420,8 +431,9 @@ function createApiRoutes(options) {
 
   // API: 获取网站配置
   router.get('/config', async (req, res) => {
+    const version = getVersion();
     const cached = cacheManager.get('config');
-    if (cached) {
+    if (cached && cached.version === version) {
       res.json(cached);
       return;
     }
@@ -477,6 +489,7 @@ function createApiRoutes(options) {
     };
 
     const result = {
+      version,
       header: renderTemplate(headerTemplate, headerData),
       footer: renderTemplate(footerTemplate, footerData),
       home: renderTemplate(homeTemplate, homeData),
@@ -489,8 +502,9 @@ function createApiRoutes(options) {
       }
     };
 
-    cacheManager.set('config', '', result, 30 * 60 * 1000);
-    res.setHeader('Cache-Control', 'public, max-age=1800');
+    if (version === getVersion() && (!homePagePath || homeContent)) {
+      cacheManager.set('config', '', result, Infinity);
+    }
     res.json(result);
   });
 
@@ -517,9 +531,7 @@ function createApiRoutes(options) {
     try {
       const stats = readStats(statsFilePath);
       const accessLogFilePath = statsFilePath.replace('.stats.json', '.access-log.json');
-      const accessLog = fs.existsSync(accessLogFilePath)
-        ? JSON.parse(fs.readFileSync(accessLogFilePath, 'utf-8'))
-        : [];
+      const accessLog = readAccessLog(accessLogFilePath);
 
       const ipStats = {};
       const postStats = {};

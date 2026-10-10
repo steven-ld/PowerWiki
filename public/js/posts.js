@@ -18,8 +18,6 @@ async function loadPosts() {
       postsTree = cached.tree || {};
       postsFlat = cached.flat || [];
       renderPostsTree(postsTree);
-      // 后台更新数据
-      updatePostsInBackground();
       return;
     }
 
@@ -28,6 +26,8 @@ async function loadPosts() {
       <span style="margin-left: 8px;">${i18n.t('client.loading')}</span>
     </li>`;
     const response = await fetch('/api/posts');
+    if (!response.ok) throw new Error('Menu unavailable');
+    ClientCache.adoptVersion(response.headers.get('X-Content-Version'));
     const data = await response.json();
     postsTree = data.tree || {};
     postsFlat = data.flat || [];
@@ -39,33 +39,6 @@ async function loadPosts() {
   } catch (error) {
     postList.innerHTML = `<li class="nav-item loading">${i18n.t('client.loadPostsFailed')}</li>`;
     console.error(i18n.t('client.loadPostsFailed'), error);
-  }
-}
-
-// 后台更新文章列表（不阻塞UI）
-async function updatePostsInBackground() {
-  try {
-    const response = await fetch('/api/posts');
-    const data = await response.json();
-
-    // 检查数据是否有变化
-    const cached = ClientCache.get('posts');
-    if (cached && JSON.stringify(cached) !== JSON.stringify(data)) {
-      // 数据有更新，更新缓存和UI
-      postsTree = data.tree || {};
-      postsFlat = data.flat || [];
-      ClientCache.set('posts', '', data);
-
-      // 如果当前没有选中文章，更新UI
-      if (!currentPost) {
-        renderPostsTree(postsTree);
-      }
-    } else {
-      // 数据没有变化，只更新缓存时间
-      ClientCache.set('posts', '', data);
-    }
-  } catch (error) {
-    console.warn(i18n.t('client.backgroundUpdatePostsFailed'), error);
   }
 }
 

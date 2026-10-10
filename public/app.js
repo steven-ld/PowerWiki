@@ -27,6 +27,7 @@ function closeMobileMenu() {
 
 // 回到首页
 function goToHome() {
+  stopPdfRendering();
   try {
     homeView.classList.add('active');
     postView.classList.remove('active');
@@ -215,6 +216,7 @@ window.addEventListener('popstate', (e) => {
   if (e.state && e.state.path) {
     loadPost(e.state.path);
   } else {
+    stopPdfRendering();
     homeView.classList.add('active');
     postView.classList.remove('active');
     currentPost = null;
@@ -254,11 +256,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupNotificationAnimations(); // 添加通知动画样式
 
   ThemeManager.init(); // 初始化主题
-  await i18n.init(); // 初始化国际化（异步）
+  await Promise.all([i18n.init(), ClientCache.ensureVersion()]);
   i18n.initElements(); // 初始化页面元素的翻译
 
-  loadConfig();
-  await loadPosts(); // 等待文章列表加载完成
+  await Promise.all([loadConfig(), loadPosts()]); // 等待文章列表加载完成
 
   // header 加载完成后再设置主题切换事件
   setupThemeToggle();
