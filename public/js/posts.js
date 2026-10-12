@@ -18,6 +18,7 @@ async function loadPosts() {
       postsTree = cached.tree || {};
       postsFlat = cached.flat || [];
       renderPostsTree(postsTree);
+      if (currentPost && typeof renderPostNavigation === 'function') renderPostNavigation(currentPost);
       return;
     }
 
@@ -36,6 +37,7 @@ async function loadPosts() {
     ClientCache.set('posts', '', data);
 
     renderPostsTree(postsTree);
+    if (currentPost && typeof renderPostNavigation === 'function') renderPostNavigation(currentPost);
   } catch (error) {
     postList.innerHTML = `<li class="nav-item loading">${i18n.t('client.loadPostsFailed')}</li>`;
     console.error(i18n.t('client.loadPostsFailed'), error);

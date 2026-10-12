@@ -401,3 +401,34 @@
   margin-right: 8px;
   accent-color: var(--primary);
 }
+
+/* 文章底部的时间顺序导航 */
+.post-navigation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-default);
+}
+.post-navigation[hidden] { display: none; }
+.post-navigation-link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text-title);
+}
+.post-navigation-next { grid-column: 2; text-align: right; }
+.post-navigation-label { font-size: 12px; color: var(--text-secondary); }
+.post-navigation-title { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.post-navigation-link:hover,
+.post-navigation-link:focus-visible { border-color: var(--primary); }
+@media (max-width: 600px) {
+  .post-navigation { grid-template-columns: minmax(0, 1fr); }
+  .post-navigation-next { grid-column: 1; }
+}
