@@ -186,3 +186,49 @@ test('renderPost 在无标题 markdown 文章时不会重新显示目录栏', ()
 
   assert.equal(tocSidebar.style.display, 'none');
 });
+
+
+test('相邻文章按创建时间排序，忽略修改时间，同时间按路径稳定排序', () => {
+  const { context } = loadArticleScript();
+  const files = [
+    { path: 'c.md', created: '2026-01-03', modified: '2026-01-04' },
+    { path: 'b.md', created: '2026-01-02', modified: '2026-12-01' },
+    { path: 'a.md', created: '2026-01-02' },
+    { path: 'missing.md' }, { path: 'invalid.md', created: 'invalid' }
+  ];
+  const original = files.map(file => file.path);
+  const adjacent = context.getAdjacentPosts(files, 'b.md');
+  assert.equal(adjacent.previous.path, 'a.md');
+  assert.equal(adjacent.next.path, 'c.md');
+  assert.equal(context.getAdjacentPosts(files, 'a.md').previous, null);
+  assert.equal(context.getAdjacentPosts(files, 'c.md').next, null);
+  assert.equal(context.getAdjacentPosts(files, 'missing.md').next, null);
+  assert.equal(context.getAdjacentPosts([], 'b.md').previous, null);
+  assert.deepEqual(files.map(file => file.path), original);
+});
+
+test('文章导航安全显示文件名，正确编码路径，切换后清除旧导航', () => {
+  const navigation = createElement();
+  navigation.replaceChildren = function () { this.children = []; };
+  const { context } = loadArticleScript({
+    postsFlat: [
+      { path: '目录/a #.md', name: '<img onerror=alert(1)>', created: '2026-01-01' },
+      { path: 'b.md', created: '2026-01-02' }
+    ],
+    encodePath: value => value.split('/').map(encodeURIComponent).join('/'),
+    document: {
+      getElementById: id => id === 'postNavigation' ? navigation : null,
+      createElement
+    }
+  });
+  context.renderPostNavigation({ path: 'b.md' });
+  assert.equal(navigation.hidden, false);
+  assert.equal(navigation.children.length, 1);
+  const link = navigation.children[0];
+  assert.equal(link.href, '/post/%E7%9B%AE%E5%BD%95/a%20%23.md');
+  assert.equal(link.children[1].textContent, '<img onerror=alert(1)>');
+  assert.equal(link.children[1].innerHTML, '');
+  context.renderPostNavigation({ path: 'unknown.md' });
+  assert.equal(navigation.hidden, true);
+  assert.equal(navigation.children.length, 0);
+});

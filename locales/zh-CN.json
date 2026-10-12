@@ -117,6 +117,8 @@
     "parseError": "Markdown 解析错误"
   },
   "client": {
+    "previousPost": "上一篇",
+    "nextPost": "下一篇",
     "title": "PowerWiki - 知识库",
     "defaultTitle": "PowerWiki - 一个现代化的知识库系统",
     "keywords": "知识库,文档,Markdown,Wiki",

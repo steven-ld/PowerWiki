@@ -117,6 +117,8 @@
     "parseError": "Markdown parse error"
   },
   "client": {
+    "previousPost": "Previous article",
+    "nextPost": "Next article",
     "title": "PowerWiki - Knowledge Base",
     "defaultTitle": "PowerWiki - A Modern Knowledge Base System",
     "keywords": "knowledge base,documentation,markdown,wiki",

@@ -12,6 +12,53 @@ const rawToggleBtn = document.getElementById('rawToggleBtn');
 const rawBody = document.getElementById('rawBody');
 const shareBtn = document.getElementById('shareBtn');
 
+// 按创建时间计算相邻文档，不修改菜单顺序或受搜索过滤影响。
+function getAdjacentPosts(files, currentPath) {
+  const ordered = files.filter(file => file.created != null && Number.isFinite(new Date(file.created).getTime()))
+    .slice().sort((a, b) => {
+      const difference = new Date(a.created).getTime() - new Date(b.created).getTime();
+      return difference || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+    });
+  const index = ordered.findIndex(file => file.path === currentPath);
+  return index < 0 ? { previous: null, next: null } : {
+    previous: ordered[index - 1] || null,
+    next: ordered[index + 1] || null
+  };
+}
+
+function renderPostNavigation(post) {
+  const navigation = document.getElementById('postNavigation');
+  if (!navigation) return;
+  navigation.replaceChildren();
+  navigation.hidden = true;
+  const adjacent = getAdjacentPosts(postsFlat, post.path);
+  for (const direction of ['previous', 'next']) {
+    const file = adjacent[direction];
+    if (!file) continue;
+    const link = document.createElement('a');
+    link.className = `post-navigation-link post-navigation-${direction}`;
+    link.href = `/post/${encodePath(file.path)}`;
+    const label = document.createElement('span');
+    label.className = 'post-navigation-label';
+    label.textContent = direction === 'previous'
+      ? `← ${i18n.t('client.previousPost')}` : `${i18n.t('client.nextPost')} →`;
+    const title = document.createElement('span');
+    title.className = 'post-navigation-title';
+    title.textContent = file.name || file.path;
+    link.appendChild(label);
+    link.appendChild(title);
+    link.addEventListener('click', event => {
+      // 保留新标签页、修饰键和普通链接的浏览器行为。
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      window.history.pushState({ path: file.path }, '', link.href);
+      loadPost(file.path);
+    });
+    navigation.appendChild(link);
+    navigation.hidden = false;
+  }
+}
+
 // 原始文档切换状态
 let isRawView = false;
 // 记录进入原始视图前目录栏的显示状态，切回时还原
@@ -547,6 +594,7 @@ function renderPost(post) {
     </div>
   `;
   postBody.appendChild(licenseDiv);
+  renderPostNavigation(post);
 
   // 格式化文件大小
   const sizeKB = (post.fileInfo.size / 1024).toFixed(2);
