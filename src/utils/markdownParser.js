@@ -62,19 +62,28 @@ function parseFrontmatter(markdown) {
   const frontmatter = {};
 
   const lines = frontmatterText.split('\n');
+  let listKey = null;
   for (const line of lines) {
+    const item = line.match(/^\s+-\s+(.+)$/);
+    if (item && listKey) {
+      frontmatter[listKey].push(item[1].trim().replace(/^(["'])(.*)\1$/, '$2'));
+      continue;
+    }
     const colonIndex = line.indexOf(':');
     if (colonIndex > 0) {
       const key = line.substring(0, colonIndex).trim();
       let value = line.substring(colonIndex + 1).trim();
+      listKey = !value && ['aliases', 'tags'].includes(key) ? key : null;
+      if (listKey) value = [];
 
-      if (value.startsWith('[') && value.endsWith(']')) {
+      if (typeof value === 'string' && value.startsWith('[') && value.endsWith(']')) {
         value = value.substring(1, value.length - 1)
           .split(',')
-          .map(v => v.trim())
+          .map(v => v.trim().replace(/^(["'])(.*)\1$/, '$2'))
           .filter(v => v);
       }
 
+      if (typeof value === 'string') value = value.replace(/^(["'])(.*)\1$/, '$2');
       frontmatter[key] = value;
     }
   }
@@ -195,6 +204,7 @@ function parseMarkdown(markdown, filePath = '') {
 }
 
 module.exports = {
+  parseFrontmatter,
   parseMarkdown,
   extractTitle,
   extractDescription,

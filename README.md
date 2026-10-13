@@ -285,6 +285,24 @@ tags: [tag1, tag2]
 ---
 ```
 
+### Stable Article URLs and SEO
+
+Set a permanent frontmatter `slug` to publish an article at `/article/getting-started`. Keep the slug when moving or renaming the file to preserve its URL and share link. Articles without a slug keep their existing `/post/file-path` URLs.
+
+```yaml
+---
+title: Getting Started
+slug: getting-started
+aliases:
+  - /post/old-folder/intro.md
+  - /article/old-getting-started
+---
+```
+
+Slugs accept Unicode letters, numbers, underscores and hyphens and must be unique. Aliases support block lists as above or inline lists such as `[/post/old.md, /article/old-slug]`. Use unencoded local paths without domains, query strings or fragments. Legacy addresses redirect permanently (301), and their share codes remain valid. Add the old path as an alias when renaming: historical paths cannot be recovered without explicit aliases. Invalid or conflicting addresses cause an error; correct the metadata and wait for Git sync.
+
+Browsers and crawlers receive the same article HTML and SEO metadata (canonical, Open Graph, Twitter Card and JSON-LD). RSS and sitemap use the same canonical URLs. Publication and modification dates come from Git; `author` overrides the site name. Initial article loads reuse server-rendered content without fetching the article again. Missing articles return HTTP 404 with `noindex`. Address indexes and article bodies remain cached until Git content or configuration changes, or the server restarts.
+
 ### Image References
 
 PowerWiki supports referencing local images using relative paths in Markdown. The system automatically converts image paths to accessible API URLs:
