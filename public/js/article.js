@@ -37,7 +37,7 @@ function renderPostNavigation(post) {
     if (!file) continue;
     const link = document.createElement('a');
     link.className = `post-navigation-link post-navigation-${direction}`;
-    link.href = `/post/${encodePath(file.path)}`;
+    link.href = postUrl(file.path);
     const label = document.createElement('span');
     label.className = 'post-navigation-label';
     label.textContent = direction === 'previous'
@@ -265,7 +265,7 @@ function updateSEOMetaTags(data) {
   document.getElementById('ogDescription').setAttribute('content', description);
   document.getElementById('ogImage').setAttribute('content', image || `${baseUrl}/og-image.png`);
   if (siteConfig) {
-    document.getElementById('ogSiteName').setAttribute('content', siteConfig.siteTitle || 'PowerWiki');
+    document.getElementById('ogSiteName').setAttribute('content', data.siteName || siteConfig.siteTitle || 'PowerWiki');
   }
 
   // 更新 Twitter Card 标签
@@ -274,31 +274,8 @@ function updateSEOMetaTags(data) {
   document.getElementById('twitterDescription').setAttribute('content', description);
   document.getElementById('twitterImage').setAttribute('content', image || `${baseUrl}/og-image.png`);
 
-  // 更新结构化数据
-  const structuredData = {
-    '@context': 'https://schema.org',
-    '@type': type === 'article' ? 'Article' : 'WebSite',
-    'headline': title,
-    'description': description,
-    'url': url
-  };
-
-  if (type === 'article' && data.articleData) {
-    structuredData['datePublished'] = data.articleData.datePublished || new Date().toISOString();
-    structuredData['dateModified'] = data.articleData.dateModified || new Date().toISOString();
-    structuredData['author'] = {
-      '@type': 'Organization',
-      'name': siteConfig?.siteTitle || 'PowerWiki'
-    };
-    if (data.articleData.image) {
-      structuredData['image'] = data.articleData.image;
-    }
-  } else {
-    structuredData['name'] = siteConfig?.siteTitle || 'PowerWiki';
-    structuredData['description'] = siteConfig?.siteDescription || description;
-  }
-
-  document.getElementById('structuredData').textContent = JSON.stringify(structuredData);
+  document.querySelector('meta[property="og:type"]').setAttribute('content', type);
+  document.getElementById('structuredData').textContent = JSON.stringify(data.structuredData);
 }
 
 // 应用配置
@@ -361,18 +338,9 @@ function applyConfig(config) {
     }
   }
 
-  // 更新页面标题和 SEO
-  const homeTitle = `${config.siteTitle || 'PowerWiki'} - ${config.siteDescription || '知识库'}`;
-  document.title = homeTitle;
+  if (currentPost || window.__INITIAL_POST__) return;
 
-  // 更新 SEO meta 标签（首页）
-  updateSEOMetaTags({
-    title: homeTitle,
-    description: config.siteDescription || 'PowerWiki - 一个现代化的知识库系统',
-    keywords: '知识库,文档,Markdown,Wiki',
-    url: window.location.origin,
-    type: 'website'
-  });
+  updateSEOMetaTags(config.seo);
 }
 
 // 加载单篇文章
@@ -410,12 +378,16 @@ async function loadPost(filePath) {
   } catch (error) {
     console.error(i18n.t('client.loadPostFailed'), error);
     showNotification(i18n.t('client.loadPostFailed') + ': ' + error.message, 'error');
-    // 文章不存在时自动跳转到首页
-    if (error.message === 'Article not found' || error.message === '文章不存在') {
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 1000);
-    }
+    currentPost = null;
+    stopPdfRendering();
+    isRawView = false;
+    if (rawBody) rawBody.style.display = 'none';
+    postBody.style.display = '';
+    const navigation = document.getElementById('postNavigation');
+    if (navigation) navigation.hidden = true;
+    postBody.innerHTML = '<h1>文章不存在或暂时无法加载</h1><a href="/">返回首页</a>';
+    postView.classList.add('active');
+    document.querySelector('meta[name="robots"]').setAttribute('content', 'noindex');
   }
 }
 
@@ -614,36 +586,9 @@ function renderPost(post) {
   postView.classList.add('active');
   homeView.classList.remove('active');
 
-  // 更新 SEO meta 标签（文章页）
-  const articleUrl = `${window.location.origin}/post/${encodePath(post.path)}`;
-  const articleTitle = `${post.title} - ${siteConfig?.siteTitle || 'PowerWiki'}`;
-  const articleDescription = post.description || post.title || 'PowerWiki 文章';
-
-  // 提取文章中的第一张图片作为 og:image
-  let articleImage = '';
-  if (post.html) {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = post.html;
-    const firstImg = tempDiv.querySelector('img');
-    if (firstImg && firstImg.src) {
-      articleImage = firstImg.src.startsWith('http') ? firstImg.src : `${window.location.origin}${firstImg.src}`;
-    }
-  }
-
-  document.title = articleTitle;
-  updateSEOMetaTags({
-    title: articleTitle,
-    description: articleDescription,
-    keywords: `${post.title},知识库,文档`,
-    url: articleUrl,
-    image: articleImage,
-    type: 'article',
-    articleData: {
-      datePublished: post.fileInfo?.modified || new Date().toISOString(),
-      dateModified: post.fileInfo?.modified || new Date().toISOString(),
-      image: articleImage
-    }
-  });
+  document.querySelector('meta[name="robots"]').setAttribute('content', 'index, follow');
+  updateSEOMetaTags(post.seo);
+  window.history.replaceState({ path: post.path }, '', post.url);
 
   // 更新footer统计信息
   updateFooterStats();

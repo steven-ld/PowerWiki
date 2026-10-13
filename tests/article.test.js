@@ -119,6 +119,7 @@ function loadArticleScript(contextOverrides = {}) {
     },
     escapeHtml: (value) => value,
     encodePath: (value) => value,
+    postUrl: value => `/post/${context.encodePath(value)}`,
     addCopyButtonsToCodeBlocks() {},
     addImageZoomFeature() {},
     renderMermaidBlocks() {},
@@ -139,6 +140,7 @@ function loadArticleScript(contextOverrides = {}) {
     },
     currentPost: null,
     window: {
+      history: { replaceState() {} },
       location: {
         origin: 'http://localhost:3150'
       },
@@ -146,6 +148,7 @@ function loadArticleScript(contextOverrides = {}) {
     },
     document: {
       title: '',
+      querySelector() { return createElement(); },
       getElementById(id) {
         return elements[id] || null;
       },
@@ -172,6 +175,8 @@ test('renderPost 在无标题 markdown 文章时不会重新显示目录栏', ()
 
   context.renderPost({
     path: '/docs/no-headings.md',
+    url: '/post/docs/no-headings.md',
+    seo: { title: 'No headings - PowerWiki', type: 'article' },
     type: 'markdown',
     title: 'No headings',
     description: 'No headings article',

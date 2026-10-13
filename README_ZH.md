@@ -285,6 +285,24 @@ tags: [标签1, 标签2]
 ---
 ```
 
+### 稳定文章地址与 SEO
+
+为文章设置固定 `slug`，即可通过 `/article/getting-started` 访问。之后移动目录或重命名文件时，保留 `slug`，文章地址及分享短链就不会改变。不设置 `slug` 的文章仍使用原有 `/post/文件路径`。
+
+```yaml
+---
+title: 入门指南
+slug: getting-started
+aliases:
+  - /post/旧目录/入门.md
+  - /article/old-getting-started
+---
+```
+
+`slug` 支持中文、字母、数字、下划线和连字符；全站必须唯一。`aliases` 支持上例的列表或 `[/post/旧文件.md, /article/旧slug]`，填写旧地址的未编码路径，不含域名、查询参数或锚点。旧文件地址、旧 slug 地址会 301 跳转到当前地址，对应旧短链也继续有效。重命名时请主动保留旧路径别名；没有别名的历史路径无法自动恢复。冲突或非法配置会报错，修复后等待 Git 同步即可。
+
+浏览器和爬虫共用文章 HTML、canonical、Open Graph、Twitter Card 和 JSON-LD；RSS 与 sitemap 使用相同的 canonical 地址。发布时间取 Git 创建时间，更新时间取 Git 修改时间，作者优先取 `author`。首次打开直接输出正文，浏览器复用这份内容，不再次下载文章；不存在的文章返回真实 404，并标记 `noindex`。地址索引和正文继续按内容版本缓存，仅在 Git 文档、配置变化或重启后重建。
+
 ### 图片引用
 
 PowerWiki 支持在 Markdown 中使用相对路径引用本地图片，系统会自动将图片路径转换为可访问的 API 地址：

@@ -1,3 +1,7 @@
+function postUrl(path) {
+  return postsFlat.find(file => file.path === path)?.url || `/post/${encodePath(path)}`;
+}
+
 // 全局状态
 let postsTree = {};
 let postsFlat = [];
@@ -76,7 +80,7 @@ function renderPostsTree(tree) {
       if (path) {
         loadPost(path);
         // 更新 URL
-        window.history.pushState({ path }, '', `/post/${encodePath(path)}`);
+        window.history.pushState({ path }, '', postUrl(path));
         // 更新活动状态（清除所有文件和文件夹的选中状态）
         postList.querySelectorAll('.nav-item-file').forEach(i => i.classList.remove('active'));
         postList.querySelectorAll('.nav-dir').forEach(d => d.classList.remove('active'));
@@ -104,7 +108,7 @@ function renderPostsTree(tree) {
       // 如果有 README，且不是当前已加载的文章，才加载
       if (readmePath && (!currentPost || currentPost.path !== readmePath)) {
         loadPost(readmePath);
-        window.history.pushState({ path: readmePath }, '', `/post/${encodePath(readmePath)}`);
+        window.history.pushState({ path: readmePath }, '', postUrl(readmePath));
 
         // 高亮当前目录
         postList.querySelectorAll('.nav-item-file').forEach(i => i.classList.remove('active'));

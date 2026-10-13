@@ -8,10 +8,10 @@
  */
 
 const express = require('express');
-const { parseMarkdown } = require('../utils/markdownParser');
+const { parseMarkdown, parseFrontmatter } = require('../utils/markdownParser');
 const seoHelper = require('../utils/seoHelper');
 const cacheManager = require('../utils/cacheManager');
-const { generateCode } = require('../utils/shortlink');
+const { articleAddress, buildAddressIndex } = require('../utils/articleAddress');
 const { t } = require('../config/i18n');
 const { createHash, randomBytes } = require('crypto');
 const statsStore = require('../utils/statsStore');
@@ -36,6 +36,7 @@ function buildDirectoryTree(files, config) {
         const isAbout = /^about$/i.test(fileName);
 
         const fileData = {
+          url: file.url,
           name: fileName,
           path: file.path,
           fullName: file.name,
@@ -250,7 +251,7 @@ function recordShortlinkView(statsFilePath, code, filePath) {
 
   const entry = stats.shortlinkViews[code] || { count: 0, filePath };
   entry.count += 1;
-  // 始终记录最新指向的文章路径（文件重命名后 code 会变，这里仅做展示用）
+  // 始终记录当前指向的文章路径，兼容稳定 slug 和历史别名。
   entry.filePath = filePath;
   stats.shortlinkViews[code] = entry;
 
@@ -276,6 +277,7 @@ function createApiRoutes(options) {
     .update(`${instanceId}:${gitManager.contentVersion}:${JSON.stringify(config)}`)
     .digest('hex');
   let pendingPosts;
+  let addressIndex;
 
   router.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-cache');
@@ -290,10 +292,32 @@ function createApiRoutes(options) {
     if (cached && cached.version === version) return cached;
     if (pendingPosts && pendingPosts.version === version) return pendingPosts.promise;
     const promise = (async () => {
-      const files = await gitManager.getAllMarkdownFiles(config.mdPath);
+      const files = (await gitManager.getAllMarkdownFiles(config.mdPath)).map(file => ({ ...file }));
+      // Explicit home/about pages remain reachable even outside mdPath.
+      for (const pagePath of new Set([config.pages.home, config.pages.about].filter(Boolean))) {
+        if (files.some(file => file.path === pagePath)) continue;
+        try {
+          const file = await gitManager.getFileInfo(pagePath);
+          if (file) files.push(file);
+        }
+        catch (error) { console.warn(`Page unavailable: ${pagePath}: ${error.message}`); }
+      }
+      // Read only metadata here; Markdown rendering stays lazy and cached.
+      // Bound concurrent disk reads without rendering every article at startup.
+      for (let offset = 0; offset < files.length; offset += 16) {
+        await Promise.all(files.slice(offset, offset + 16).map(async file => {
+          const frontmatter = file.type === 'pdf' || /\.pdf$/i.test(file.path) ? {} :
+            parseFrontmatter(await gitManager.readMarkdownFile(file.path)).frontmatter;
+          Object.assign(file, articleAddress(file, frontmatter));
+        }));
+      }
+      const index = buildAddressIndex(files); // Reject ambiguous slugs/aliases rather than picking an article.
       if (version !== getVersion()) return warmPosts();
       const result = { tree: buildDirectoryTree(files, config), flat: files, version };
-      if (version === getVersion()) cacheManager.set('posts', '', result, Infinity);
+      if (version === getVersion()) {
+        cacheManager.set('posts', '', result, Infinity);
+        addressIndex = { version, index };
+      }
       return result;
     })();
     pendingPosts = { version, promise };
@@ -318,114 +342,101 @@ function createApiRoutes(options) {
     }
   });
 
-  // API: 获取单篇文章内容
+  async function getPost(filePath) {
+    const posts = await warmPosts();
+    const file = posts.flat.find(file => file.path === filePath);
+    if (!file) throw Object.assign(new Error('Article not found'), { status: 404 });
+    const cached = cacheManager.get('post', filePath);
+    if (cached && cached.version === posts.version) return cached;
+    const fileInfo = file;
+    const parsed = file.type === 'pdf' || /\.pdf$/i.test(filePath) ?
+      { html: '', title: file.name.replace(/\.pdf$/i, ''), description: 'PDF 文档', frontmatter: {} } :
+      parseMarkdown(await gitManager.readMarkdownFile(filePath), filePath);
+    const title = parsed.title === '无标题' ? file.name.replace(/\.(md|markdown)$/i, '') : parsed.title;
+    const html = seoHelper.optimizeImageTags(parsed.html, title);
+    const result = { ...parsed, title, html, description: parsed.description || seoHelper.generateDescription(html, title),
+      keywords: parsed.keywords || seoHelper.extractKeywords(html, title, filePath),
+      version: posts.version, type: /\.pdf$/i.test(filePath) ? 'pdf' : 'markdown', fileInfo, path: filePath, url: file.url };
+    if (posts.version !== getVersion()) return getPost(filePath);
+    cacheManager.set('post', filePath, result, Infinity);
+    return result;
+  }
+  function withSEO(post, req) {
+    const baseUrl = (config.siteUrl || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+    const url = baseUrl + post.url;
+    const image = seoHelper.extractImages(post.html, baseUrl)[0] || `${baseUrl}/og-image.png`;
+    const structuredData = seoHelper.generateArticleSchema({ title: post.title, description: post.description,
+      url, datePublished: post.fileInfo.created || post.fileInfo.modified, dateModified: post.fileInfo.modified,
+      authorName: post.frontmatter.author || config.siteTitle || 'PowerWiki', authorUrl: baseUrl, image, keywords: post.keywords });
+    return { ...post, seo: { title: `${post.title} - ${config.siteTitle || 'PowerWiki'}`, description: post.description,
+      keywords: post.keywords, url, image, type: 'article', siteName: config.siteTitle || 'PowerWiki', structuredData } };
+  }
+  function homeSEO(req) {
+    const baseUrl = (config.siteUrl || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+    const siteName = config.siteTitle || 'PowerWiki';
+    const description = config.siteDescription || 'PowerWiki - 一个现代化的知识库系统';
+    return { title: `${siteName} - ${config.siteDescription || '知识库'}`, description,
+      keywords: '知识库,文档,Markdown,Wiki', url: baseUrl + '/', type: 'website', siteName,
+      image: `${baseUrl}/og-image.png`, structuredData: seoHelper.generateWebSiteSchema({ name: siteName, description, url: baseUrl + '/' }) };
+  }
+  let pendingHome;
+  async function getHomeContent() {
+    const version = getVersion();
+    if (!config.pages.home) return null;
+    if (!pendingHome || pendingHome.version !== version) {
+      const homePath = config.pages.home;
+      const promise = gitManager.readMarkdownFile(homePath).then(content => {
+        const parsed = parseMarkdown(content, homePath);
+        return { html: parsed.html, title: parsed.title || '首页', path: homePath };
+      });
+      pendingHome = { version, promise };
+      promise.catch(() => { if (pendingHome && pendingHome.promise === promise) pendingHome = null; });
+    }
+    const result = await pendingHome.promise;
+    return version === getVersion() ? result : getHomeContent();
+  }
+  router.getHomeContent = getHomeContent;
+  router.homeSEO = homeSEO;
+  router.getPost = getPost;
+  router.withSEO = withSEO;
+  router.addressIndex = async () => {
+    const posts = await warmPosts();
+    if (!addressIndex || addressIndex.version !== posts.version) addressIndex = { version: posts.version, index: buildAddressIndex(posts.flat) };
+    return addressIndex.index;
+  };
   router.get('/post/*', async (req, res) => {
     try {
-      let filePath = req.params[0];
-      try {
-        filePath = decodeURIComponent(filePath);
-      } catch (e) {
-        console.warn(`⚠️  ${t('static.pathDecodeFailed')}:`, filePath);
-      }
-
-      const version = getVersion();
-      const cacheKey = filePath;
-      const cached = cacheManager.get('post', cacheKey);
-      if (cached && cached.version === version) {
-        const viewCount = recordPostView(statsFilePath, filePath, req);
-        cached.viewCount = viewCount;
-        res.json(cached);
-        return;
-      }
-
-      const viewCount = recordPostView(statsFilePath, filePath, req);
-
-      if (filePath.endsWith('.pdf')) {
-        const fileInfo = await gitManager.getFileInfo(filePath);
-        const fileName = fileInfo.name.replace(/\.pdf$/i, '');
-
-        const result = {
-          version,
-          type: 'pdf',
-          title: fileName,
-          fileInfo,
-          path: filePath,
-          html: '',
-          description: 'PDF 文档',
-          viewCount
-        };
-
-        if (version === getVersion()) cacheManager.set('post', cacheKey, result, Infinity);
-        res.json(result);
-      } else {
-        const content = await gitManager.readMarkdownFile(filePath);
-        const parsed = parseMarkdown(content, filePath);
-        const fileInfo = await gitManager.getFileInfo(filePath);
-
-        const fileName = fileInfo.name.replace(/\.(md|markdown)$/i, '');
-        const title = parsed.title || fileName;
-
-        const optimizedHtml = seoHelper.optimizeImageTags(parsed.html, title);
-        const description = parsed.description || seoHelper.generateDescription(optimizedHtml, title);
-        const keywords = parsed.keywords || seoHelper.extractKeywords(optimizedHtml, title, filePath);
-
-        const result = {
-          ...parsed,
-          version,
-          type: 'markdown',
-          title,
-          html: optimizedHtml,
-          description,
-          keywords,
-          fileInfo,
-          path: filePath,
-          viewCount
-        };
-
-        if (version === getVersion()) cacheManager.set('post', cacheKey, result, Infinity);
-        res.json(result);
-      }
+      const post = await getPost(req.params[0]);
+      res.setHeader('X-Content-Version', post.version);
+      res.json({ ...withSEO(post, req), viewCount: recordPostView(statsFilePath, post.path, req) });
     } catch (error) {
-      console.error(`❌ ${t('stats.getPostFailed')}:`, error);
-      res.status(404).json({ error: t('stats.postNotFound') });
+      res.status(error.status || 503).json({ error: error.message });
     }
   });
 
   router.post('/view/*', async (req, res) => {
     const filePath = req.params[0];
     try {
-      const cached = cacheManager.get('post', filePath);
-      if ((!cached || cached.version !== getVersion()) && !await gitManager.getFileInfo(filePath)) {
-        return res.status(404).json({ error: t('stats.postNotFound') });
-      }
+      await getPost(filePath);
       res.json({ viewCount: recordPostView(statsFilePath, filePath, req) });
     } catch (error) {
-      res.status(404).json({ error: t('stats.postNotFound') });
+      res.status(error.status || 503).json({ error: error.message });
     }
   });
 
   // API: 获取指定文章的短链信息（供前端「分享」按钮使用）
   router.get('/shortlink/*', async (req, res) => {
     try {
-      let filePath = req.params[0];
-      try {
-        filePath = decodeURIComponent(filePath);
-      } catch (e) {
-        // 解码失败则使用原始路径
-      }
-
-      if (!filePath) {
-        return res.status(400).json({ error: 'filePath is required' });
-      }
-
-      const code = generateCode(filePath);
-      const baseUrl = config.siteUrl || `${req.protocol}://${req.get('host')}`;
+      const filePath = req.params[0];
+      const post = await getPost(filePath);
+      const code = post.fileInfo.code;
+      const baseUrl = (config.siteUrl || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
       const shortUrl = `${baseUrl}/s/${code}`;
 
       res.json({ code, shortUrl, filePath });
     } catch (error) {
       console.error(`❌ ${t('stats.getShortlinkFailed')}:`, error);
-      res.status(500).json({ error: error.message });
+      res.status(error.status || 503).json({ error: error.message });
     }
   });
 
@@ -434,7 +445,7 @@ function createApiRoutes(options) {
     const version = getVersion();
     const cached = cacheManager.get('config');
     if (cached && cached.version === version) {
-      res.json(cached);
+      res.json({ ...cached, seo: homeSEO(req) });
       return;
     }
 
@@ -449,13 +460,7 @@ function createApiRoutes(options) {
     let homeContent = null;
     if (homePagePath) {
       try {
-        const content = await gitManager.readMarkdownFile(homePagePath);
-        const parsed = parseMarkdown(content, homePagePath);
-        homeContent = {
-          html: parsed.html,
-          title: parsed.title || '首页',
-          path: homePagePath
-        };
+        homeContent = await getHomeContent();
       } catch (error) {
         console.warn(`⚠️  ${t('stats.readHomePageFailed')}: ${homePagePath}:`, error.message);
       }
@@ -505,7 +510,7 @@ function createApiRoutes(options) {
     if (version === getVersion() && (!homePagePath || homeContent)) {
       cacheManager.set('config', '', result, Infinity);
     }
-    res.json(result);
+    res.json({ ...result, seo: homeSEO(req) });
   });
 
   // API: 获取统计数据

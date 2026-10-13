@@ -32,19 +32,12 @@ function goToHome() {
     homeView.classList.add('active');
     postView.classList.remove('active');
     currentPost = null;
+    document.querySelector('meta[name="robots"]').setAttribute('content', 'index, follow');
     window.history.pushState({}, '', '/');
 
     // 更新 SEO meta 标签（首页）
     if (siteConfig) {
-      const homeTitle = `${siteConfig.siteTitle || 'PowerWiki'} - ${siteConfig.siteDescription || '知识库'}`;
-      document.title = homeTitle;
-      updateSEOMetaTags({
-        title: homeTitle,
-        description: siteConfig.siteDescription || 'PowerWiki - 一个现代化的知识库系统',
-        keywords: '知识库,文档,Markdown,Wiki',
-        url: window.location.origin,
-        type: 'website'
-      });
+      updateSEOMetaTags(siteConfig.seo);
     }
 
     // 检查首页是否有 README 内容，有则显示目录
@@ -78,30 +71,21 @@ function goToHome() {
 
 // 设置路由
 function setupRouting() {
+  const initial = window.__INITIAL_POST__;
+  window.__INITIAL_POST__ = null;
+  if (initial && initial.version === ClientCache.version) {
+    currentPost = initial;
+    ClientCache.set('post', initial.path, initial);
+    renderPost(initial);
+    updatePostInBackground(initial.path);
+    return;
+  }
   const path = window.location.pathname;
-  if (path.startsWith('/post/')) {
-    const encodedPath = path.replace('/post/', '');
-    // 解码 URL 编码的路径
-    try {
-      const postPath = decodeURIComponent(encodedPath);
-      // 等待文章列表加载完成后再加载文章
-      if (postsFlat.length > 0) {
-        loadPost(postPath);
-      } else {
-        // 如果文章列表还没加载，等待加载完成
-        const checkInterval = setInterval(() => {
-          if (postsFlat.length > 0) {
-            clearInterval(checkInterval);
-            loadPost(postPath);
-          }
-        }, 100);
-        // 5秒后超时
-        setTimeout(() => clearInterval(checkInterval), 5000);
-      }
-    } catch (error) {
-      console.error(i18n.t('client.pathDecodeFailed'), error);
-      showNotification(i18n.t('client.pathParseFailed'), 'error');
-    }
+  const file = postsFlat.find(file => file.url === path);
+  if (file) loadPost(file.path);
+  else if (path.startsWith('/post/')) {
+    try { loadPost(decodeURIComponent(path.slice(6))); }
+    catch (error) { showNotification(i18n.t('client.pathParseFailed'), 'error'); }
   }
 }
 
@@ -220,18 +204,11 @@ window.addEventListener('popstate', (e) => {
     homeView.classList.add('active');
     postView.classList.remove('active');
     currentPost = null;
+    document.querySelector('meta[name="robots"]').setAttribute('content', 'index, follow');
 
     // 更新 SEO meta 标签（首页）
     if (siteConfig) {
-      const homeTitle = `${siteConfig.siteTitle || 'PowerWiki'} - ${siteConfig.siteDescription || '知识库'}`;
-      document.title = homeTitle;
-      updateSEOMetaTags({
-        title: homeTitle,
-        description: siteConfig.siteDescription || 'PowerWiki - 一个现代化的知识库系统',
-        keywords: '知识库,文档,Markdown,Wiki',
-        url: window.location.origin,
-        type: 'website'
-      });
+      updateSEOMetaTags(siteConfig.seo);
     }
 
     // 检查首页是否有 README 内容，有则显示目录

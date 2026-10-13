@@ -17,10 +17,8 @@ const env = require('./config/env');
 const i18n = require('./config/i18n');
 const { t } = i18n;
 const GitManager = require('./utils/gitManager');
-const { parseMarkdown } = require('./utils/markdownParser');
 const cacheManager = require('./utils/cacheManager');
-const seoHelper = require('./utils/seoHelper');
-const { buildCodeMap } = require('./utils/shortlink');
+const { renderPage } = require('./utils/pageRenderer');
 const { createApiRoutes } = require('./routes/api');
 const { createApiFeedRoutes } = require('./routes/feeds');
 const { createStaticRoutes } = require('./routes/static');
@@ -86,111 +84,21 @@ function getFrontendTranslations() {
 }
 
 app.get('/', async (req, res) => {
-  const userAgent = req.get('user-agent') || '';
-  const isBot = /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|sogou|exabot|facebot|ia_archiver/i.test(userAgent);
-
-  // 获取前端翻译
-  const translations = getFrontendTranslations();
-  const lang = i18n.getLang();
-
-  if (isBot) {
-    // SSR 模式：返回完整渲染的 HTML
-    try {
-      const headerTemplate = readTemplate('header');
-      const footerTemplate = readTemplate('footer');
-      const homeTemplate = readTemplate('home');
-      const stats = require('./routes/api').readStats(statsFilePath);
-      const homePagePath = config.pages.home || '';
-
-      let homeContent = null;
-      if (homePagePath) {
-        try {
-          const content = await gitManager.readMarkdownFile(homePagePath);
-          const parsed = parseMarkdown(content, homePagePath);
-          homeContent = {
-            html: parsed.html,
-            title: parsed.title || '首页',
-            path: homePagePath
-          };
-        } catch (error) {
-          // 静默失败
-        }
-      }
-
-      const headerData = {
-        siteTitle: config.siteTitle || config.title,
-        siteDescription: config.siteDescription || config.description,
-        aboutPath: config.pages.about ? `/post/${encodeURIComponent(config.pages.about)}` : '/post/README.md'
-      };
-
-      const footerData = {
-        currentYear: new Date().getFullYear(),
-        siteTitle: config.siteTitle || config.title,
-        totalViews: stats.totalViews || 0,
-        totalPosts: stats.postViews ? Object.keys(stats.postViews).length : 0,
-        footerCopyright: config.footer?.copyright || `© ${new Date().getFullYear()} ${config.siteTitle || config.title}`,
-        footerPoweredBy: config.footer?.poweredBy || 'Powered by <a href="https://github.com/steven-ld/PowerWiki.git" target="_blank" rel="noopener">PowerWiki</a>'
-      };
-
-      const homeData = {
-        siteTitle: config.siteTitle || config.title,
-        siteDescription: config.siteDescription || config.description
-      };
-
-      const html = `<!DOCTYPE html>
-<html lang="${lang === 'en' ? 'en' : 'zh-CN'}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${config.siteTitle || 'PowerWiki'} - ${config.siteDescription || '知识库'}</title>
-    <meta name="description" content="${config.siteDescription || 'PowerWiki - 一个现代化的知识库系统'}">
-    <meta name="keywords" content="知识库,文档,Markdown,Wiki">
-    <link rel="canonical" href="${config.siteUrl || `${req.protocol}://${req.get('host')}`}">
-    <link rel="alternate" type="application/rss+xml" title="${config.siteTitle || 'PowerWiki'} RSS Feed" href="${config.siteUrl || `${req.protocol}://${req.get('host')}`}/rss.xml">
-    <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-    <div class="app-container">
-        <div id="siteHeader">${renderTemplate(headerTemplate, headerData)}</div>
-        <main class="main-content">
-            <div id="homeView" class="view active">
-                ${renderTemplate(homeTemplate, homeData)}
-                ${homeContent ? `<div id="homeContent">${homeContent.html}</div>` : ''}
-            </div>
-        </main>
-        <div id="siteFooter">${renderTemplate(footerTemplate, footerData)}</div>
-    </div>
-</body>
-</html>`;
-
-      res.send(html);
-      return;
-    } catch (error) {
-      console.error(`❌ ${t('error.ssrRenderFailed')}:`, error);
-    }
-  }
-
-  // 非爬虫：读取 index.html 并注入翻译
   try {
-    let html = fs.readFileSync(indexHtmlPath, 'utf-8');
-
-    // 注入翻译数据到 HTML（在 </head> 之前）
-    const translationsScript = `\n    <script>window.__I18N__ = ${JSON.stringify(translations)};</script>`;
-    html = html.replace('</head>', `${translationsScript}\n</head>`);
-
-    // 注入语言属性
-    html = html.replace(/lang="zh-CN"/, `lang="${lang === 'en' ? 'en' : 'zh-CN'}"`);
-
-    // 禁用缓存
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    
-    res.send(html);
-  } catch (error) {
-    console.error('[i18n] 注入翻译失败:', error);
-    res.send(fs.readFileSync(indexHtmlPath, 'utf8'));
-  }
+    const seo = apiRoutes.homeSEO(req);
+    const description = seo.description;
+    let home = renderTemplate(readTemplate('home'), { siteTitle: config.siteTitle, siteDescription: description });
+    if (config.pages.home) {
+      try {
+        const content = await apiRoutes.getHomeContent();
+        home = `<div id="homeContent" class="markdown-body">${content.html}</div>`;
+      } catch (error) { /* The repository may still be starting. */ }
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(renderPage(fs.readFileSync(indexHtmlPath, 'utf8'), { home,
+      seo,
+      translations: getFrontendTranslations(), lang: i18n.getLang() }));
+  } catch (error) { res.status(503).send('Service unavailable'); }
 });
 
 // 翻译数据 API（在静态文件之前，让所有页面都能获取翻译）
@@ -416,7 +324,8 @@ const feedsRouter = createApiFeedRoutes({
   config,
   gitManager,
   readTemplate,
-  renderTemplate
+  renderTemplate,
+  articles: apiRoutes
 });
 
 // RSS 和 Sitemap 在根路径可用（/rss.xml, /sitemap.xml）
@@ -427,7 +336,8 @@ const rootFeedsRouter = createApiFeedRoutes({
   config,
   gitManager,
   readTemplate,
-  renderTemplate
+  renderTemplate,
+  articles: apiRoutes
 });
 app.use('/', rootFeedsRouter);
 
@@ -445,190 +355,32 @@ Sitemap: ${baseUrl}/sitemap.xml
   res.send(robotsTxt);
 });
 
-// 短链跳转：/s/:code -> 302 跳转到对应文章，并记录短链访问次数
-// code 由文章路径哈希派生（见 utils/shortlink.js），此处基于当前文章列表反查路径，
-// 保证只会命中一篇现存文章；文件被删除/重命名后短链自动失效。
+// Stable and legacy short links share the same versioned address index.
 app.get('/s/:code', async (req, res) => {
-  const code = req.params.code;
-
   try {
-    // 优先复用 /api/posts 的缓存，避免每次跳转都全量扫描 + git log（开销大）
-    let filePaths;
-    const cachedPosts = cacheManager.get('posts');
-    if (cachedPosts && Array.isArray(cachedPosts.flat)) {
-      filePaths = cachedPosts.flat.map(f => f.path);
-    } else {
-      const files = await gitManager.getAllMarkdownFiles(config.mdPath);
-      filePaths = files.map(f => f.path);
-    }
-
-    const codeMap = buildCodeMap(filePaths);
-    const filePath = codeMap.get(code);
-
-    if (!filePath) {
-      // 短链无效：跳回首页
-      res.redirect(302, '/');
-      return;
-    }
-
-    // 记录短链访问次数（与文章访问量独立统计）
-    try {
-      require('./routes/api').recordShortlinkView(statsFilePath, code, filePath);
-    } catch (e) {
-      console.error('❌ 记录短链访问失败:', e.message);
-    }
-
-    // 按 SPA 约定编码：保留 / 不编码，仅编码各路径段，跳转后 URL 更易读且与站内导航一致
-    const encodedPath = filePath.split('/').map(part => encodeURIComponent(part)).join('/');
-    res.redirect(302, `/post/${encodedPath}`);
-  } catch (error) {
-    console.error('❌ 短链跳转失败:', error.message);
-    res.redirect(302, '/');
-  }
+    const file = (await apiRoutes.addressIndex()).codes.get(req.params.code);
+    if (!file) return res.status(404).send('Article not found');
+    require('./routes/api').recordShortlinkView(statsFilePath, req.params.code, file.path);
+    res.redirect(302, file.url);
+  } catch (error) { res.status(503).send('Service unavailable'); }
 });
 
-// 文章详情页 - 支持 SSR
-app.get('/post/*', async (req, res) => {
-  const userAgent = req.get('user-agent') || '';
-  const isBot = /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|sogou|exabot|facebot|ia_archiver/i.test(userAgent);
-
-  if (isBot) {
-    try {
-      let filePath = req.params[0];
-      try {
-        filePath = decodeURIComponent(filePath);
-      } catch (e) {
-        // 解码失败，使用原始路径
-      }
-
-      if (filePath.endsWith('.pdf')) {
-        res.send(fs.readFileSync(indexHtmlPath, 'utf8'));
-        return;
-      }
-
-      const content = await gitManager.readMarkdownFile(filePath);
-      const parsed = parseMarkdown(content, filePath);
-      const fileInfo = await gitManager.getFileInfo(filePath);
-      const fileName = fileInfo.name.replace(/\.(md|markdown)$/i, '');
-      const title = parsed.title || fileName;
-
-      const headerTemplate = readTemplate('header');
-      const footerTemplate = readTemplate('footer');
-      const stats = require('./routes/api').readStats(statsFilePath);
-
-      const headerData = {
-        siteTitle: config.siteTitle || config.title,
-        siteDescription: config.siteDescription || config.description,
-        aboutPath: config.pages.about ? `/post/${encodeURIComponent(config.pages.about)}` : '/post/README.md'
-      };
-
-      const footerData = {
-        currentYear: new Date().getFullYear(),
-        siteTitle: config.siteTitle || config.title,
-        totalViews: stats.totalViews || 0,
-        totalPosts: stats.postViews ? Object.keys(stats.postViews).length : 0,
-        footerCopyright: config.footer?.copyright || `© ${new Date().getFullYear()} ${config.siteTitle || config.title}`,
-        footerPoweredBy: config.footer?.poweredBy || 'Powered by <a href="https://github.com/steven-ld/PowerWiki.git" target="_blank" rel="noopener">PowerWiki</a>'
-      };
-
-      const baseUrl = config.siteUrl || `${req.protocol}://${req.get('host')}`;
-      const articleUrl = `${baseUrl}/post/${encodeURIComponent(filePath)}`;
-      const articleTitle = `${title} - ${config.siteTitle || 'PowerWiki'}`;
-
-      const optimizedHtml = seoHelper.optimizeImageTags(parsed.html, title);
-      const articleDescription = parsed.description || seoHelper.generateDescription(optimizedHtml, title);
-      const articleKeywords = parsed.keywords || seoHelper.extractKeywords(optimizedHtml, title, filePath);
-      const images = seoHelper.extractImages(optimizedHtml, baseUrl);
-      const articleImage = images.length > 0 ? images[0] : '';
-
-      const breadcrumbSchema = seoHelper.generateBreadcrumbSchema(filePath, baseUrl, config.siteTitle || 'PowerWiki');
-      const articleSchema = seoHelper.generateArticleSchema({
-        title,
-        description: articleDescription,
-        url: articleUrl,
-        datePublished: new Date(fileInfo.created || fileInfo.modified).toISOString(),
-        dateModified: new Date(fileInfo.modified).toISOString(),
-        authorName: config.siteTitle || 'PowerWiki',
-        authorUrl: baseUrl,
-        image: articleImage || undefined,
-        keywords: articleKeywords
-      });
-
-      const html = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${articleTitle}</title>
-    <meta name="description" content="${articleDescription}">
-    <meta name="keywords" content="${articleKeywords}">
-    <link rel="canonical" href="${articleUrl}">
-    <link rel="alternate" type="application/rss+xml" title="${config.siteTitle || 'PowerWiki'} RSS Feed" href="${baseUrl}/rss.xml">
-    <meta property="og:type" content="article">
-    <meta property="og:url" content="${articleUrl}">
-    <meta property="og:title" content="${articleTitle}">
-    <meta property="og:description" content="${articleDescription}">
-    ${articleImage ? `<meta property="og:image" content="${articleImage}">` : ''}
-    <meta property="og:site_name" content="${config.siteTitle || 'PowerWiki'}">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="${articleTitle}">
-    <meta name="twitter:description" content="${articleDescription}">
-    ${articleImage ? `<meta name="twitter:image" content="${articleImage}">` : ''}
-    <script type="application/ld+json">
-    ${JSON.stringify(articleSchema)}
-    </script>
-    ${breadcrumbSchema ? `<script type="application/ld+json">
-    ${JSON.stringify(breadcrumbSchema)}
-    </script>` : ''}
-    <link rel="stylesheet" href="/styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
-</head>
-<body>
-    <div class="app-container">
-        <div id="siteHeader">${renderTemplate(headerTemplate, headerData)}</div>
-        <main class="main-content">
-            <div id="postView" class="view active">
-                <article class="post-content">
-                    <header class="post-header">
-                        <h1>${title}</h1>
-                        <div class="post-meta">
-                            <span class="meta-item">
-                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                    <rect x="1" y="2" width="12" height="11" rx="2" stroke="currentColor" stroke-width="1.2"/>
-                                    <path d="M1 5h12M4 1v2M10 1v2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-                                </svg>
-                                <span class="date-text">${new Date(fileInfo.created || fileInfo.modified).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                            </span>
-                        </div>
-                    </header>
-                    <div class="markdown-body">
-                        ${optimizedHtml}
-                        ${fileInfo.created && fileInfo.modified && new Date(fileInfo.created).getTime() !== new Date(fileInfo.modified).getTime() ? `
-                        <div class="post-updated-time">
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.2"/>
-                                <path d="M7 4v3l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-                            </svg>
-                            <span>更新时间：${new Date(fileInfo.modified).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                        </div>
-                        ` : ''}
-                    </div>
-                </article>
-            </div>
-        </main>
-        <div id="siteFooter">${renderTemplate(footerTemplate, footerData)}</div>
-    </div>
-</body>
-</html>`;
-
-      res.send(html);
-      return;
-    } catch (error) {
-      console.error(`❌ ${t('error.postSsrRenderFailed')}:`, error);
-    }
+// One shell, one Markdown renderer and one SEO model for all user agents.
+app.get(['/post/*', '/article/*'], async (req, res) => {
+  try {
+    // Express already decoded route parameters; decoding twice breaks literal % filenames.
+    const prefix = req.path.startsWith('/article/') ? '/article/' : '/post/';
+    const file = (await apiRoutes.addressIndex()).routes.get(prefix + req.params[0]);
+    if (!file) return res.status(404).send('<!DOCTYPE html><html><head><meta name="robots" content="noindex"><title>404</title></head><body><h1>文章不存在</h1><a href="/">返回首页</a></body></html>');
+    if (req.path !== file.url) return res.redirect(301, file.url);
+    const post = apiRoutes.withSEO(await apiRoutes.getPost(file.path), req);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(renderPage(fs.readFileSync(indexHtmlPath, 'utf8'), { post, seo: post.seo,
+      translations: getFrontendTranslations(), lang: i18n.getLang() }));
+  } catch (error) {
+    console.error('Article render failed:', error);
+    res.status(error.status || 503).send('Service unavailable');
   }
-
-  res.send(fs.readFileSync(indexHtmlPath, 'utf8'));
 });
 
 // 统计页面
