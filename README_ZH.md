@@ -172,9 +172,9 @@ npm start
 | `html.sanitize` | 按白名单清洗文章正文 | `true` |
 | `html.csp` | 覆盖配置的 404 页面使用的 Content-Security-Policy | `""` |
 
-HTML 文件和 Markdown 文件一样作为文章处理：出现在侧边栏，地址为 `/post/docs/page.html`，并共用同一套阅读界面（目录、复制、原始视图、分享短链、SEO 标签和阅读数）。旧地址会 301 到文章地址：`/docs/page`、`/docs/page.html` → `/post/docs/page.html`，`/docs/` → `/post/docs/index.html`。只取 `<body>` 作为正文，`<title>`、`<meta name="description">`、`<meta name="keywords">` 作为文章元信息。
+HTML 文件和 Markdown 文件一样作为文章处理：出现在侧边栏，地址为 `/post/docs/page.html`，并共用同一套阅读界面（目录、复制、原始视图、分享短链、SEO 标签和阅读数）。旧地址会 301 到文章地址：`/docs/page`、`/docs/page.html` → `/post/docs/page.html`，`/docs/` → `/post/docs/index.html`。只取 `<body>` 作为正文，`<title>`、`<meta name="description">`、`<meta name="keywords">` 作为文章元信息。首页也可以配置为 HTML 文件：`pages.home` 支持 `.html` 并走同一条渲染链路；`html.enabled` 为 `false` 时首页同样停用。
 
-正文默认按白名单清洗：移除 `<script>`、`<style>`、`<iframe>`、表单、内联事件处理器和 `style` 属性，丢弃 `javascript:` 链接。相对地址在服务端改写：图片走 `/api/image/...`，指向其他 HTML/Markdown/PDF 的链接走 `/post/...`，其他资源（如 `static/site.css`）按页面所在目录解析，不再依赖 `Referer`。根绝对地址（`/static/...`、`/api/image/...`）保持原样；它们命中同级 `static/` 仍借助文章页面的 `Referer`，该地址会被映射回仓库目录。只有完全可信的内容才应设置 `html.sanitize: false`（旧的 `html.sandbox: false` 仍然兼容，等价于可信模式）。名为 `static` 的目录不会被当作文章目录扫描。`pages.notFound` 为空或文件不存在时使用内置 404 页面。
+正文默认按白名单清洗：移除 `<script>`、`<style>`、`<iframe>`、表单、内联事件处理器和 `style` 属性，丢弃 `javascript:` 链接。相对地址在服务端改写：图片走 `/api/image/...`，指向其他 HTML/Markdown/PDF 的链接走 `/post/...`，其他资源（如 `static/site.css`）按页面所在目录解析，不再依赖 `Referer`。根绝对地址（`/static/...`、`/api/image/...`）保持原样；它们命中同级 `static/` 仍借助文章页面的 `Referer`，该地址会被映射回仓库目录。只有完全可信的内容才应设置 `html.sanitize: false`（旧的 `html.sandbox: false` 仍然兼容，等价于可信模式）。名为 `static` 的目录不会被当作文章目录扫描。数据类文件（JSON、YAML、TXT、CSV、XML）只从名为 `static` 的目录提供，同级目录的资源查找不会暴露它们。`pages.notFound` 为空或文件不存在时使用内置 404 页面。
 
 ### 完整 HTML 页面（沙箱模式）
 
@@ -186,7 +186,7 @@ HTML 文件和 Markdown 文件一样作为文章处理：出现在侧边栏，�
 
 声明后，正文不再清洗，而是变成一个受控的 `iframe`：允许脚本、表单、弹窗、下载和用户触发的顶层跳转，但不带 `allow-same-origin`。页面运行在不透明源中，无法读取 Wiki 的 Cookie、localStorage、IndexedDB，也不能调用同源接口。`content="full"` 是兼容别名。需要持久化状态时请使用内存变量，或对 Web Storage 访问做 `try / catch`。
 
-原始页面同时通过 `/full/<仓库路径>` 提供，返回未清洗的 HTML，并附带 `Content-Security-Policy: sandbox ...` 与 `X-Content-Type-Options: nosniff` 响应头，可在新窗口独立打开。该路由只提供 HTML 和静态资源（图片、CSS/JS、字体、音视频、WASM），并在解析前校验路径：拒绝目录穿越、隐藏路径段、符号链接和超过 50 MB 的文件。未声明该 meta 的 HTML 文件仍走白名单清洗。
+原始页面同时通过 `/full/<仓库路径>` 提供，返回未清洗的 HTML，并附带 `Content-Security-Policy: sandbox ...` 与 `X-Content-Type-Options: nosniff` 响应头，可在新窗口独立打开。该路由只提供 HTML 和静态资源（图片、CSS/JS、字体、音视频、WASM），并在解析前校验路径：拒绝目录穿越、隐藏路径段、符号链接和超过 50 MB 的文件。`/full/docs/` 这类目录地址与 `/full/docs/guide` 这类省略后缀的地址会分别解析到 `index.html` 与 `guide.html`，完整页面里的相对链接可以照常工作。未声明该 meta 的 HTML 文件仍走白名单清洗。
 
 ## 🌍 环境变量
 
