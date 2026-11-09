@@ -81,10 +81,13 @@
 .html-sandbox-frame {
   display: block;
   width: 100%;
-  height: clamp(520px, 82vh, 1200px);
+  /* 页面通过 postMessage 上报内容高度时按内容展开（见 sandbox-context.js），
+     否则退回固定视口比例，避免过短的页面留出大片空白。 */
+  height: var(--sandbox-height, clamp(520px, 82vh, 1200px));
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #ffffff;
+  /* 与站点底色一致：深色主题下不会在页面绘制前闪出白色画布 */
+  background: var(--bg-body);
   box-shadow: var(--shadow-md);
   transition: height .42s cubic-bezier(.2, .75, .25, 1),
               border-radius .3s ease;
@@ -106,7 +109,7 @@
 
 @media (max-width: 768px) {
   .html-sandbox-frame {
-    height: 72vh;
+    height: var(--sandbox-height, 72vh);
     border-radius: 8px;
   }
 }

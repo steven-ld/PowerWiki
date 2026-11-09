@@ -63,13 +63,33 @@ function exitReaderMode(options) {
   document.body.classList.remove(READER_MODE_CLASS);
   if (fullPageBtn) fullPageBtn.setAttribute('aria-expanded', 'false');
   if (settings.restoreScroll !== false) window.scrollTo(0, readerScrollY);
-  if (settings.restoreFocus !== false && fullPageBtn) {
+  // 首页也可能处于沉浸态，此时「全屏」按钮在隐藏的文章视图里，不能把焦点丢过去
+  if (settings.restoreFocus !== false && fullPageBtn && fullPageBtn.offsetParent !== null) {
     fullPageBtn.focus({ preventScroll: true });
   }
 }
 
 function toggleReaderMode() {
   if (isReaderMode()) exitReaderMode(); else enterReaderMode();
+}
+
+/* 首页沿用同一套沉浸态：配置的首页是 .html 时同样铺满视口，
+   退出后回到带站点外壳的阅读视图（iframe 此时按内容高度展开）。
+   首页是 Markdown 时保持原来的窄栏排版。 */
+function isHtmlHome() {
+  return !!(siteConfig && siteConfig.homeContent &&
+    /\.(html?|htm)$/i.test(siteConfig.homeContent.path || ''));
+}
+
+function applyHomeReaderMode() {
+  if (!homeView || !homeView.classList.contains('active')) return;
+  if (isHtmlHome()) {
+    if (!isReaderMode()) enterReaderMode({ animate: false, focusExit: false });
+    // 首页的退出目标始终是页面顶部，不继承上一篇文档的滚动位置
+    readerScrollY = 0;
+  } else {
+    exitReaderMode({ restoreScroll: false, restoreFocus: false });
+  }
 }
 
 if (fullPageBtn) {
@@ -420,6 +440,8 @@ function applyConfig(config) {
 
   if (currentPost || window.__INITIAL_POST__) return;
 
+  // 首页内容已就绪：HTML 首页直接以沉浸态打开
+  applyHomeReaderMode();
   updateSEOMetaTags(config.seo);
 }
 

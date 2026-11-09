@@ -37,12 +37,12 @@ function recordHomeView() {
 // 回到首页
 function goToHome() {
   stopPdfRendering();
-  // 首页不保留沉浸式阅读的展开状态
-  if (typeof exitReaderMode === 'function') exitReaderMode({ restoreScroll: false, restoreFocus: false });
   try {
     homeView.classList.add('active');
     postView.classList.remove('active');
     currentPost = null;
+    // 首页是 HTML 时保持沉浸态，是 Markdown 时退出沉浸态
+    if (typeof applyHomeReaderMode === 'function') applyHomeReaderMode();
     document.querySelector('meta[name="robots"]').setAttribute('content', 'index, follow');
     window.history.pushState({}, '', '/');
 
@@ -213,10 +213,10 @@ window.addEventListener('popstate', (e) => {
     loadPost(e.state.path);
   } else {
     stopPdfRendering();
-    if (typeof exitReaderMode === 'function') exitReaderMode({ restoreScroll: false, restoreFocus: false });
     homeView.classList.add('active');
     postView.classList.remove('active');
     currentPost = null;
+    if (typeof applyHomeReaderMode === 'function') applyHomeReaderMode();
     document.querySelector('meta[name="robots"]').setAttribute('content', 'index, follow');
 
     // 更新 SEO meta 标签（首页）
