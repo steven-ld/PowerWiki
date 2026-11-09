@@ -354,7 +354,11 @@ function renderDefaultNotFound(content = notFoundContent()) {
  */
 function createNotFoundHandler({ gitManager, config }) {
   return async function notFoundHandler(req, res, next) {
-    if (res.headersSent) return next();
+    // 也允许不作为 Express 中间件直接调用（例如 /post/* 的兜底），此时没有 next。
+    if (res.headersSent) {
+      if (typeof next === 'function') next();
+      return;
+    }
 
     if (req.path === '/api' || req.path.startsWith('/api/')) {
       return res.status(404).json({ error: 'Not found' });

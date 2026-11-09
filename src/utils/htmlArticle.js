@@ -59,11 +59,18 @@ const SANDBOX_MODE = 'sandbox';
 // 读不到 Wiki 的 Cookie、localStorage，也不能调用同源接口。
 const SANDBOX_IFRAME_ATTRS = 'allow-scripts allow-forms allow-popups allow-modals allow-downloads allow-top-navigation-by-user-activation';
 
+// 超出 Unicode 范围的数字实体（如 &#x110000;）会让 fromCodePoint 抛错，
+// 不能因为文章标题里一个坏实体就让整篇文章 500，改用替换字符。
+function entityCodePoint(value, radix) {
+  const code = parseInt(value, radix);
+  return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : '�';
+}
+
 function decodeEntities(value) {
   return String(value || '')
     .replace(/&nbsp;/g, ' ')
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
-    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => entityCodePoint(code, 16))
+    .replace(/&#(\d+);/g, (_, code) => entityCodePoint(code, 10))
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')

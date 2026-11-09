@@ -84,6 +84,10 @@ test('HTML articles are sanitized and their assets rewritten', () => {
 
   // 没有 <title> 时用正文第一个 h1 作为标题。
   assert.equal(parseHtmlArticle('<body><h1>Only</h1></body>', 'docs/a.htm').title, 'Only');
+
+  // 越界的数字实体不能让整篇文章解析失败。
+  assert.equal(parseHtmlArticle('<title>&#x110000;</title><body>x</body>', 'bad.html').title, '�');
+  assert.equal(parseHtmlArticle('<title>&#9999999999;</title><body>x</body>', 'bad.html').title, '�');
 });
 
 test('sandbox render mode embeds the original page in an isolated iframe', () => {
