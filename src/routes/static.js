@@ -54,7 +54,8 @@ function createStaticRoutes(options) {
       res.setHeader('Content-Type', IMAGE_CONTENT_TYPES[file.extension] || 'application/octet-stream');
       res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
       res.setHeader('Content-Length', file.size);
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      // 仓库图片会被 Git 更新但路径不变，不能使用 immutable，否则一年内不刷新。
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
       if (file.extension === '.svg') res.setHeader('Content-Security-Policy', SVG_CSP);

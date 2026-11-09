@@ -64,7 +64,8 @@
     "pathDecodeFailed": "路径解码失败，使用原始路径",
     "notPdfFile": "不是 PDF 文件",
     "getPdfFailed": "获取 PDF 失败",
-    "pdfNotFound": "PDF 文件不存在"
+    "pdfNotFound": "PDF 文件不存在",
+    "serveHtmlFailed": "读取仓库 HTML 页面失败"
   },
   "browser": {
     "unknown": "未知",

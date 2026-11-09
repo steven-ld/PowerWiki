@@ -220,16 +220,31 @@ function createHtmlRoutes({ gitManager, config }) {
       const file = await firstExisting(gitManager.repoPath, htmlCandidates(req.path), HTML_EXTENSIONS);
       if (!file) return next();
 
+      // 目录首页统一跳到带斜杠地址，浏览器才会把相对 `static/` 解析到该目录。
+      const requestedExtension = extensionOf(req.path);
+      const explicitHtml = requestedExtension === '.html' || requestedExtension === '.htm';
+      const segments = file.relative.split('/');
+      const isDirectoryIndex = segments.length > 1 && /^index\.html?$/i.test(segments[segments.length - 1]);
+      if (!explicitHtml && !req.path.endsWith('/') && isDirectoryIndex) {
+        // 只使用已校验的路径，并折叠开头的 //，避免被解释成协议相对地址。
+        const [, query] = req.originalUrl.split('?');
+        const pathname = req.path.replace(/^\/+/, '/').replace(/\/+$/, '');
+        return res.redirect(301, `${pathname}/${query ? `?${query}` : ''}`);
+      }
+
       applyDocumentHeaders(res, settings);
       await sendFile(res, file, {});
     } catch (error) {
-      console.error(`❌ ${t('static.getImageFailed')}:`, error);
+      console.error(`❌ ${t('static.serveHtmlFailed')}:`, error);
       if (!res.headersSent) next(error);
     }
   });
 
   return router;
 }
+
+// 缺失的 404 配置路径：只提示一次，避免 404 扫描导致日志刷屏。
+const warnedMissingNotFound = new Set();
 
 let defaultNotFoundTemplate;
 function readDefaultNotFoundTemplate() {
@@ -239,7 +254,7 @@ function readDefaultNotFoundTemplate() {
       defaultNotFoundTemplate = fs.readFileSync(templatePath, 'utf8');
     } catch (error) {
       defaultNotFoundTemplate = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">' +
-        '<meta name="robots" content="noindex"><title>404</title></head><body>' +
+        '<meta name="robots" content="noindex"><title>404 - {{title}}</title></head><body>' +
         '<h1>404</h1><p>页面不存在</p><a href="/">返回首页</a></body></html>';
     }
   }
@@ -252,7 +267,9 @@ function notFoundContent() {
 }
 
 function renderDefaultNotFound(content = notFoundContent()) {
-  return readDefaultNotFoundTemplate().replace('{{content}}', () => content);
+  return readDefaultNotFoundTemplate()
+    .replace('{{title}}', () => t('notFound.title'))
+    .replace('{{content}}', () => content);
 }
 
 /**
@@ -287,7 +304,11 @@ function createNotFoundHandler({ gitManager, config }) {
           }
           return;
         }
-        console.warn(`⚠️  ${t('notFound.configuredMissing')}: ${configuredPage}`);
+        // 每个缺失路径只告警一次，避免被大量 404 请求刷屏。
+        if (!warnedMissingNotFound.has(configuredPage)) {
+          warnedMissingNotFound.add(configuredPage);
+          console.warn(`⚠️  ${t('notFound.configuredMissing')}: ${configuredPage}`);
+        }
       } catch (error) {
         console.error(`❌ ${t('notFound.renderFailed')}:`, error);
       }

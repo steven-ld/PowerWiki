@@ -172,7 +172,7 @@ Edit `config.json`:
 | `html.sandbox` | Run repository HTML in a sandboxed origin | `true` |
 | `html.csp` | Override the default Content-Security-Policy | `""` |
 
-Repository HTML pages can be opened without the `.html` suffix: `/docs/page` serves `docs/page.html`, and `/docs/` serves `docs/index.html`. Relative assets under `/static/...` resolve to `<page-directory>/static/...` first, then to the repository-level `static/...`. Repository HTML runs in a sandboxed origin by default, so it cannot read the wiki's cookies, `localStorage`, or same-origin APIs; set `html.sandbox` to `false` only for fully trusted content. If `pages.notFound` is empty or missing, the built-in 404 page is used.
+Repository HTML pages can be opened without the `.html` suffix: `/docs/page` serves `docs/page.html`, and `/docs/` serves `docs/index.html` (a bare `/docs` redirects to `/docs/` so relative URLs resolve correctly). Reference assets with a **relative** path such as `static/site.css`: the browser resolves it to `/docs/static/site.css`, which is served directly and is the recommended way to get same-level assets. A root-absolute `/static/site.css` is served from the page's sibling `static/` only when the request carries a `Referer`; sandboxed pages do not send one, so it falls back to the repository-level `static/`. Repository HTML runs in a sandboxed origin by default, so it cannot read the wiki's cookies, `localStorage`, or same-origin APIs; set `html.sandbox` to `false` only for fully trusted content. Keep page assets in a `static/` directory — other same-directory assets also depend on `Referer`. If `pages.notFound` is empty or missing, the built-in 404 page is used.
 
 ## 🌍 Environment Variables
 

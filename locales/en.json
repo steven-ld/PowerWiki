@@ -64,7 +64,8 @@
     "pathDecodeFailed": "Path decode failed, using original path",
     "notPdfFile": "Not a PDF file",
     "getPdfFailed": "Failed to get PDF",
-    "pdfNotFound": "PDF file not found"
+    "pdfNotFound": "PDF file not found",
+    "serveHtmlFailed": "Failed to serve repository HTML"
   },
   "browser": {
     "unknown": "Unknown",

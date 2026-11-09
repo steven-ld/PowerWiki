@@ -172,7 +172,7 @@ npm start
 | `html.sandbox` | 将仓库 HTML 放入沙箱源 | `true` |
 | `html.csp` | 覆盖默认的 Content-Security-Policy | `""` |
 
-仓库中的 HTML 页面可以省略 `.html` 后缀访问：`/docs/page` 对应 `docs/page.html`，`/docs/` 对应 `docs/index.html`。引用 `/static/...` 时会优先使用页面同级目录下的 `static/...`，找不到再回退到仓库顶层的 `static/...`。仓库 HTML 默认运行在沙箱源中，无法读取 Wiki 的 Cookie、`localStorage` 或同源接口；只有完全可信的内容才应设置 `html.sandbox: false`。`pages.notFound` 为空或文件不存在时使用内置 404 页面。
+仓库中的 HTML 页面可以省略 `.html` 后缀访问：`/docs/page` 对应 `docs/page.html`，`/docs/` 对应 `docs/index.html`（访问 `/docs` 会 301 到 `/docs/`，保证相对地址解析正确）。页面引用资源请使用**相对路径**（如 `static/site.css`）：浏览器会解析为 `/docs/static/site.css`，由服务器直接返回，这是使用同级资源的推荐方式。根绝对路径 `/static/site.css` 只有在请求带 `Referer` 时才会优先取页面同级的 `static/`；沙箱页面不会发送 `Referer`，因此会回退到仓库顶层的 `static/`。仓库 HTML 默认运行在沙箱源中，无法读取 Wiki 的 Cookie、`localStorage` 或同源接口；只有完全可信的内容才应设置 `html.sandbox: false`。页面资源请统一放在 `static/` 目录，其他同级资源同样依赖 `Referer`。`pages.notFound` 为空或文件不存在时使用内置 404 页面。
 
 ## 🌍 环境变量
 

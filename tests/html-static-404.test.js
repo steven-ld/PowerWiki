@@ -120,11 +120,15 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     });
 
     // 省略 .html、显式 .html 与目录 index 都返回同一个页面。
-    for (const url of ['/docs/guide', '/docs/guide.html', '/docs', '/docs/']) {
+    for (const url of ['/docs/guide', '/docs/guide.html', '/docs/']) {
       const response = await request(url);
       assert.equal(response.status, 200, url);
       assert.match(response.headers.get('content-type'), /text\/html/, url);
     }
+    // 目录首页必须跳到带斜杠地址，浏览器才能正确解析页面内的相对资源。
+    const directoryRedirect = await request('/docs', { redirect: 'manual' });
+    assert.equal(directoryRedirect.status, 301);
+    assert.equal(directoryRedirect.headers.get('location'), '/docs/');
     const guide = await (await request('/docs/guide')).text();
     assert.match(guide, /<h1>Guide<\/h1>/);
     // 页面名本身带点或百分号时仍可省略 .html。
@@ -136,7 +140,8 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     assert.equal(headers.get('x-frame-options'), 'SAMEORIGIN');
     assert.equal(headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
 
-    // /static/* 优先命中引用页面同级的 static，再回退到仓库顶层 static。
+    // 页面使用相对 static/... 时浏览器直接请求 /docs/static/...，无需 Referer。
+    // 根绝对 /static/... 的同级优先只在有 Referer 时生效（沙箱页面不会发送 Referer）。
     const sameLevel = await (await request('/static/site.css', { headers: { referer: `${origin}/docs/guide` } })).text();
     assert.match(sameLevel, /rgb\(1,2,3\)/);
     const topLevel = await (await request('/static/site.css')).text();
@@ -188,7 +193,9 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     }, 15000);
     const fallback = await request('/still-missing');
     assert.equal(fallback.status, 404);
-    assert.match(await fallback.text(), /class="not-found"/);
+    const fallbackBody = await fallback.text();
+    assert.match(fallbackBody, /class="not-found"/);
+    assert.match(fallbackBody, /<title>404 - .+<\/title>/);
   } catch (error) {
     error.message += '\n' + output;
     throw error;
