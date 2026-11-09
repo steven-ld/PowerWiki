@@ -261,6 +261,48 @@
   height: 20px;
 }
 
+/* ========== HTML 全屏入口 ========== */
+.fullpage-btn {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+  font-family: inherit;
+  line-height: 1;
+}
+
+.fullpage-btn:hover {
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+.fullpage-btn:active {
+  transform: scale(0.96);
+}
+
+.fullpage-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.fullpage-btn svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.fullpage-btn span {
+  font-size: 12px;
+}
+
 /* ========== 复制文档按钮 ========== */
 .copy-doc-btn {
   display: none;

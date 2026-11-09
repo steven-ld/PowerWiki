@@ -11,6 +11,7 @@ const copyDocBtn = document.getElementById('copyDocBtn');
 const rawToggleBtn = document.getElementById('rawToggleBtn');
 const rawBody = document.getElementById('rawBody');
 const shareBtn = document.getElementById('shareBtn');
+const fullPageBtn = document.getElementById('fullPageBtn');
 
 // 按创建时间计算相邻文档，不修改菜单顺序或受搜索过滤影响。
 function getAdjacentPosts(files, currentPath) {
@@ -431,6 +432,19 @@ function renderPost(post) {
   // 检查文件类型
   const filePath = post.path;
   const fileType = post.type || (filePath.endsWith('.pdf') ? 'pdf' : 'markdown');
+  const isHtmlPost = fileType === 'html' || /\.(html?|htm)$/i.test(filePath);
+
+  // HTML 文章默认提供「全屏」入口，直达 /full/ 下的完整页面；
+  // 其余类型隐藏，避免出现无效链接。
+  if (fullPageBtn) {
+    if (isHtmlPost) {
+      fullPageBtn.href = `/full/${encodePath(filePath)}`;
+      fullPageBtn.style.display = 'inline-flex';
+    } else {
+      fullPageBtn.style.display = 'none';
+      fullPageBtn.removeAttribute('href');
+    }
+  }
 
   // 分享按钮对 Markdown 和 PDF 均可用
   if (shareBtn) {
