@@ -12,6 +12,7 @@ const {
   safeDecodePath
 } = require('../src/utils/safePath');
 const { parseHtmlArticle } = require('../src/utils/htmlArticle');
+const { htmlSettings } = require('../src/routes/html');
 
 async function until(check, timeout = 10000) {
   const deadline = Date.now() + timeout;
@@ -65,7 +66,8 @@ test('HTML articles are sanitized and their assets rewritten', () => {
     '<img src="img/a.png" onerror="alert(1)">' +
     '<img src="data:text/html;base64,AAA">' +
     '<a href="javascript:alert(1)">x</a><a href="other.html">o</a><a href="../up.html">u</a>' +
-    '<a href="#part">p</a><div style="color:red" onclick="alert(1)">d</div></body></html>';
+    '<a href="#part">p</a><a href="/docs/root">r</a><img src="/api/image/docs/b.png">' +
+    '<div style="color:red" onclick="alert(1)">d</div></body></html>';
 
   const article = parseHtmlArticle(source, 'docs/page.html');
   assert.equal(article.title, 'Doc');
@@ -75,10 +77,23 @@ test('HTML articles are sanitized and their assets rewritten', () => {
   assert.match(article.html, /href="\/post\/docs\/other\.html"/);
   assert.match(article.html, /href="\/post\/up\.html"/);
   assert.match(article.html, /href="#part"/);
+  // 根绝对地址本来就是站点地址，保持原样，避免被再次加上 /post 或 /api/image 前缀。
+  assert.match(article.html, /href="\/docs\/root"/);
+  assert.match(article.html, /src="\/api\/image\/docs\/b\.png"/);
   assert.match(article.raw, /alert\(1\)/);
 
   // 没有 <title> 时用正文第一个 h1 作为标题。
   assert.equal(parseHtmlArticle('<body><h1>Only</h1></body>', 'docs/a.htm').title, 'Only');
+});
+
+test('html sanitize defaults on and keeps the legacy sandbox switch', () => {
+  assert.equal(htmlSettings({}).sanitize, true);
+  assert.equal(htmlSettings({ html: {} }).sanitize, true);
+  assert.equal(htmlSettings({ html: { sanitize: true } }).sanitize, true);
+  assert.equal(htmlSettings({ html: { sanitize: false } }).sanitize, false);
+  // 旧的 html.sandbox:false 等价于可信模式；显式 sanitize 优先。
+  assert.equal(htmlSettings({ html: { sandbox: false } }).sanitize, false);
+  assert.equal(htmlSettings({ html: { sanitize: true, sandbox: false } }).sanitize, true);
 });
 
 test('HTML pages, static priority, security headers, 404 and home stats', { timeout: 30000 }, async () => {
@@ -212,6 +227,9 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     // 根绝对 /static/... 仍按 Referer 优先取同级 static，兼容旧页面。
     const sameLevel = await (await request('/static/site.css', { headers: { referer: `${origin}/docs/guide` } })).text();
     assert.match(sameLevel, /rgb\(1,2,3\)/);
+    // 文章页面的 Referer（/post/docs/guide.html）同样映射回仓库目录。
+    const articleLevel = await (await request('/static/site.css', { headers: { referer: `${origin}/post/docs/guide.html` } })).text();
+    assert.match(articleLevel, /rgb\(1,2,3\)/);
     const topLevel = await (await request('/static/site.css')).text();
     assert.match(topLevel, /rgb\(9,9,9\)/);
     const explicit = await (await request('/docs/static/site.css')).text();
@@ -225,6 +243,7 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
 
     // 非 static 资源只允许引用页面同级目录；static 目录不受此限制。
     assert.equal((await request('/docs/local.png', { headers: { referer: `${origin}/docs/guide` } })).status, 200);
+    assert.equal((await request('/docs/local.png', { headers: { referer: `${origin}/post/docs/guide.html` } })).status, 200);
     assert.equal((await request('/docs/local.png')).status, 404);
     assert.equal((await request('/docs/static/picture.png')).status, 200);
     assert.equal((await request('/package.json')).status, 404);

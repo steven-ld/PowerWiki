@@ -129,7 +129,9 @@ function resolveRepoPath(value, directory) {
  */
 function rewriteUrl(value, directory, kind) {
   const raw = String(value || '').trim();
-  if (!raw || raw.startsWith('#') || raw.startsWith('//') || SCHEME_RE.test(raw)) return value;
+  // 根绝对地址（/docs/x.html、/api/image/...、/static/...）本来就是站点地址，
+  // 原样保留；只有相对地址需要按页面所在目录解析。
+  if (!raw || raw.startsWith('#') || raw.startsWith('/') || SCHEME_RE.test(raw)) return value;
 
   const match = raw.match(/^([^?#]*)([?#][\s\S]*)?$/);
   if (!match || !match[1]) return value;
@@ -164,7 +166,9 @@ function sanitizeArticle(body, directory, sanitize) {
   const options = trusted ? {
     allowedTags: false,
     allowedAttributes: false,
-    nonTextTags: []
+    nonTextTags: [],
+    // 可信模式由配置显式开启，允许 script/style，不再重复告警。
+    allowVulnerableTags: true
   } : {
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: ALLOWED_ATTRIBUTES,

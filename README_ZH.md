@@ -174,7 +174,7 @@ npm start
 
 HTML 文件和 Markdown 文件一样作为文章处理：出现在侧边栏，地址为 `/post/docs/page.html`，并共用同一套阅读界面（目录、复制、原始视图、分享短链、SEO 标签和阅读数）。旧地址会 301 到文章地址：`/docs/page`、`/docs/page.html` → `/post/docs/page.html`，`/docs/` → `/post/docs/index.html`。只取 `<body>` 作为正文，`<title>`、`<meta name="description">`、`<meta name="keywords">` 作为文章元信息。
 
-正文默认按白名单清洗：移除 `<script>`、`<style>`、`<iframe>`、表单、内联事件处理器和 `style` 属性，丢弃 `javascript:` 链接。相对地址在服务端改写：图片走 `/api/image/...`，指向其他 HTML/Markdown/PDF 的链接走 `/post/...`，其他资源（如 `static/site.css`）按页面所在目录解析，不再依赖 `Referer`。只有完全可信的内容才应设置 `html.sanitize: false`（旧的 `html.sandbox: false` 仍然兼容，等价于可信模式）。名为 `static` 的目录不会被当作文章目录扫描。`pages.notFound` 为空或文件不存在时使用内置 404 页面。
+正文默认按白名单清洗：移除 `<script>`、`<style>`、`<iframe>`、表单、内联事件处理器和 `style` 属性，丢弃 `javascript:` 链接。相对地址在服务端改写：图片走 `/api/image/...`，指向其他 HTML/Markdown/PDF 的链接走 `/post/...`，其他资源（如 `static/site.css`）按页面所在目录解析，不再依赖 `Referer`。根绝对地址（`/static/...`、`/api/image/...`）保持原样；它们命中同级 `static/` 仍借助文章页面的 `Referer`，该地址会被映射回仓库目录。只有完全可信的内容才应设置 `html.sanitize: false`（旧的 `html.sandbox: false` 仍然兼容，等价于可信模式）。名为 `static` 的目录不会被当作文章目录扫描。`pages.notFound` 为空或文件不存在时使用内置 404 页面。
 
 ## 🌍 环境变量
 

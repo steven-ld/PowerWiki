@@ -136,7 +136,17 @@ function refererDirectory(req) {
   if (decoded === null) return null;
   const clean = cleanUrlPath(decoded);
   const segments = clean.split('/').filter(Boolean);
-  if (!segments.length || RESERVED_TOP_LEVEL.has(segments[0]) || hasUnsafeSegment(segments)) return null;
+  if (!segments.length || hasUnsafeSegment(segments)) return null;
+
+  // 文章页 /post/<仓库路径> 的 Referer 需要映射回仓库目录，
+  // 这样页面里的根绝对 /static/... 仍能优先命中同级 static/。
+  if (segments[0] === 'post') {
+    segments.shift();
+    segments.pop(); // 文章文件本身
+    if (!segments.length || hasUnsafeSegment(segments)) return null;
+    return segments.join('/');
+  }
+  if (RESERVED_TOP_LEVEL.has(segments[0])) return null;
 
   // 引用页面本身是普通页面时去掉文件名；引用的是目录则保留目录。
   if (!clean.endsWith('/')) segments.pop();
