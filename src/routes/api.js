@@ -9,12 +9,17 @@
 
 const express = require('express');
 const { parseMarkdown, parseFrontmatter } = require('../utils/markdownParser');
+const { parseHtmlArticle } = require('../utils/htmlArticle');
+const { htmlSettings } = require('./html');
 const seoHelper = require('../utils/seoHelper');
 const cacheManager = require('../utils/cacheManager');
 const { articleAddress, buildAddressIndex } = require('../utils/articleAddress');
 const { t } = require('../config/i18n');
 const { createHash, randomBytes } = require('crypto');
 const statsStore = require('../utils/statsStore');
+
+// 首页访问在统计和访问日志中使用固定路径，避免被算作某篇文章。
+const HOME_VIEW_PATH = '/';
 
 /**
  * 构建目录树结构
@@ -31,7 +36,7 @@ function buildDirectoryTree(files, config) {
       const isFile = i === parts.length - 1;
 
       if (isFile) {
-        const fileName = part.replace(/\.(md|markdown|pdf)$/i, '');
+        const fileName = part.replace(/\.(md|markdown|pdf|html?|htm)$/i, '');
         const isReadme = /^readme$/i.test(fileName);
         const isAbout = /^about$/i.test(fileName);
 
@@ -46,9 +51,9 @@ function buildDirectoryTree(files, config) {
           type: file.type || (file.name.endsWith('.pdf') ? 'pdf' : 'markdown')
         };
 
-        if (isReadme && fileData.type === 'markdown') {
+        if (isReadme && fileData.type !== 'pdf') {
           current.readme = fileData;
-        } else if (isAbout && fileData.type === 'markdown') {
+        } else if (isAbout && fileData.type !== 'pdf') {
           current.about = fileData;
         } else {
           if (!current.files) {
@@ -205,18 +210,10 @@ function saveAccessLog(accessLogFilePath, log) {
 }
 
 /**
- * 记录文章访问
+ * 写入一条详细访问日志
  */
-function recordPostView(statsFilePath, filePath, req) {
+function writeAccessRecord(statsFilePath, filePath, req) {
   const accessLogFilePath = statsFilePath.replace('.stats.json', '.access-log.json');
-
-  const stats = readStats(statsFilePath);
-  stats.totalViews = (stats.totalViews || 0) + 1;
-  stats.postViews = stats.postViews || {};
-  stats.postViews[filePath] = (stats.postViews[filePath] || 0) + 1;
-  saveStats(statsFilePath, stats);
-
-  // 记录详细访问日志
   const accessLog = readAccessLog(accessLogFilePath);
   const ip = getClientIP(req);
   const userAgent = req.headers['user-agent'] || 'unknown';
@@ -234,8 +231,37 @@ function recordPostView(statsFilePath, filePath, req) {
   });
 
   saveAccessLog(accessLogFilePath, accessLog);
+}
+
+/**
+ * 记录文章访问
+ */
+function recordPostView(statsFilePath, filePath, req) {
+  const stats = readStats(statsFilePath);
+  stats.totalViews = (stats.totalViews || 0) + 1;
+  stats.postViews = stats.postViews || {};
+  stats.postViews[filePath] = (stats.postViews[filePath] || 0) + 1;
+  saveStats(statsFilePath, stats);
+
+  writeAccessRecord(statsFilePath, filePath, req);
+  cacheManager.delete('stats');
 
   return stats.postViews[filePath];
+}
+
+/**
+ * 记录首页访问。首页不属于任何文章，单独累计到 homeViews。
+ */
+function recordHomeView(statsFilePath, req) {
+  const stats = readStats(statsFilePath);
+  stats.totalViews = (stats.totalViews || 0) + 1;
+  stats.homeViews = (stats.homeViews || 0) + 1;
+  saveStats(statsFilePath, stats);
+
+  writeAccessRecord(statsFilePath, HOME_VIEW_PATH, req);
+  cacheManager.delete('stats');
+
+  return stats.homeViews;
 }
 
 /**
@@ -256,6 +282,7 @@ function recordShortlinkView(statsFilePath, code, filePath) {
   stats.shortlinkViews[code] = entry;
 
   saveStats(statsFilePath, stats);
+  cacheManager.delete('stats');
 
   return entry.count;
 }
@@ -292,13 +319,19 @@ function createApiRoutes(options) {
     if (cached && cached.version === version) return cached;
     if (pendingPosts && pendingPosts.version === version) return pendingPosts.promise;
     const promise = (async () => {
-      const files = (await gitManager.getAllMarkdownFiles(config.mdPath)).map(file => ({ ...file }));
+      const settings = htmlSettings(config);
+      const notFoundPage = config.pages.notFound || config.notFound;
+      // HTML 页面与 Markdown 一起作为文章：关闭 html.enabled 时不再收录，
+      // 配置的 404 页面只是错误页，不进目录。
+      const files = (await gitManager.getAllMarkdownFiles(config.mdPath))
+        .map(file => ({ ...file }))
+        .filter(file => file.type !== 'html' || (settings.enabled && file.path !== notFoundPage));
       // Explicit home/about pages remain reachable even outside mdPath.
       for (const pagePath of new Set([config.pages.home, config.pages.about].filter(Boolean))) {
         if (files.some(file => file.path === pagePath)) continue;
         try {
           const file = await gitManager.getFileInfo(pagePath);
-          if (file) files.push(file);
+          if (file && (file.type !== 'html' || settings.enabled)) files.push(file);
         }
         catch (error) { console.warn(`Page unavailable: ${pagePath}: ${error.message}`); }
       }
@@ -306,7 +339,8 @@ function createApiRoutes(options) {
       // Bound concurrent disk reads without rendering every article at startup.
       for (let offset = 0; offset < files.length; offset += 16) {
         await Promise.all(files.slice(offset, offset + 16).map(async file => {
-          const frontmatter = file.type === 'pdf' || /\.pdf$/i.test(file.path) ? {} :
+          // HTML 与 PDF 没有 frontmatter；slug/aliases 仅由 Markdown 提供。
+          const frontmatter = file.type !== 'markdown' || /\.pdf$/i.test(file.path) ? {} :
             parseFrontmatter(await gitManager.readMarkdownFile(file.path)).frontmatter;
           Object.assign(file, articleAddress(file, frontmatter));
         }));
@@ -349,14 +383,24 @@ function createApiRoutes(options) {
     const cached = cacheManager.get('post', filePath);
     if (cached && cached.version === posts.version) return cached;
     const fileInfo = file;
-    const parsed = file.type === 'pdf' || /\.pdf$/i.test(filePath) ?
-      { html: '', title: file.name.replace(/\.pdf$/i, ''), description: 'PDF 文档', frontmatter: {} } :
-      parseMarkdown(await gitManager.readMarkdownFile(filePath), filePath);
-    const title = parsed.title === '无标题' ? file.name.replace(/\.(md|markdown)$/i, '') : parsed.title;
+    const isPdf = file.type === 'pdf' || /\.pdf$/i.test(filePath);
+    const isHtml = !isPdf && (file.type === 'html' || /\.(html?|htm)$/i.test(filePath));
+    let parsed;
+    if (isPdf) {
+      parsed = { html: '', title: file.name.replace(/\.pdf$/i, ''), description: 'PDF 文档', frontmatter: {} };
+    } else if (isHtml) {
+      // HTML 页面按文章正文清洗后再交给同一条渲染链路。
+      parsed = parseHtmlArticle(await gitManager.readHtmlFile(filePath), filePath,
+        { sanitize: htmlSettings(config).sanitize });
+    } else {
+      parsed = parseMarkdown(await gitManager.readMarkdownFile(filePath), filePath);
+    }
+    const title = parsed.title === '无标题' ?
+      file.name.replace(/\.(md|markdown|html?|htm)$/i, '') : parsed.title;
     const html = seoHelper.optimizeImageTags(parsed.html, title);
     const result = { ...parsed, title, html, description: parsed.description || seoHelper.generateDescription(html, title),
       keywords: parsed.keywords || seoHelper.extractKeywords(html, title, filePath),
-      version: posts.version, type: /\.pdf$/i.test(filePath) ? 'pdf' : 'markdown', fileInfo, path: filePath, url: file.url };
+      version: posts.version, type: isPdf ? 'pdf' : isHtml ? 'html' : 'markdown', fileInfo, path: filePath, url: file.url };
     if (posts.version !== getVersion()) return getPost(filePath);
     cacheManager.set('post', filePath, result, Infinity);
     return result;
@@ -421,6 +465,15 @@ function createApiRoutes(options) {
       res.json({ viewCount: recordPostView(statsFilePath, filePath, req) });
     } catch (error) {
       res.status(error.status || 503).json({ error: error.message });
+    }
+  });
+
+  // API: 记录首页访问（由前端在首页实际展示后调用，避免把爬虫 HTML 请求计入）。
+  router.post('/home/view', (req, res) => {
+    try {
+      res.json({ homeViews: recordHomeView(statsFilePath, req) });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
   });
 
@@ -560,23 +613,26 @@ function createApiRoutes(options) {
           };
         }
         ipStats[record.ip].count++;
-        ipStats[record.ip].posts.add(record.filePath);
+        // 首页不是文章：计入总访问量、日志和趋势，但不进入文章访问排行榜。
+        const isHomeView = record.filePath === HOME_VIEW_PATH;
+        if (!isHomeView) {
+          ipStats[record.ip].posts.add(record.filePath);
+          if (!postStats[record.filePath]) {
+            postStats[record.filePath] = {
+              filePath: record.filePath,
+              count: 0,
+              uniqueIPs: new Set()
+            };
+          }
+          postStats[record.filePath].count++;
+          postStats[record.filePath].uniqueIPs.add(record.ip);
+        }
         if (record.timestamp < ipStats[record.ip].firstVisit) {
           ipStats[record.ip].firstVisit = record.timestamp;
         }
         if (record.timestamp > ipStats[record.ip].lastVisit) {
           ipStats[record.ip].lastVisit = record.timestamp;
         }
-
-        if (!postStats[record.filePath]) {
-          postStats[record.filePath] = {
-            filePath: record.filePath,
-            count: 0,
-            uniqueIPs: new Set()
-          };
-        }
-        postStats[record.filePath].count++;
-        postStats[record.filePath].uniqueIPs.add(record.ip);
 
         const date = record.timestamp.split('T')[0];
         dateStats[date] = (dateStats[date] || 0) + 1;
@@ -701,6 +757,7 @@ function createApiRoutes(options) {
       res.json({
         summary: {
           totalViews: stats.totalViews,
+          homeViews: stats.homeViews || 0,
           totalPosts: Object.keys(stats.postViews).length,
           totalIPs: ipStatsArray.length,
           totalRecords: accessLog.length,
@@ -773,4 +830,4 @@ function createApiRoutes(options) {
   return router;
 }
 
-module.exports = { createApiRoutes, recordPostView, recordShortlinkView, readStats, saveStats };
+module.exports = { createApiRoutes, recordPostView, recordHomeView, recordShortlinkView, readStats, saveStats, HOME_VIEW_PATH };

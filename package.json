@@ -46,6 +46,7 @@
     "ip2region": "^2.3.0",
     "marked": "^9.1.6",
     "pdfjs-dist": "^5.4.449",
+    "sanitize-html": "2.17.0",
     "simple-git": "^3.20.0"
   },
   "devDependencies": {

@@ -380,6 +380,10 @@
                         <div class="stat-card-value" id="totalViews">-</div>
                     </div>
                     <div class="stat-card">
+                        <div class="stat-card-title">首页访问量</div>
+                        <div class="stat-card-value" id="homeViews">-</div>
+                    </div>
+                    <div class="stat-card">
                         <div class="stat-card-title">总文章数</div>
                         <div class="stat-card-value" id="totalPosts">-</div>
                     </div>
@@ -646,6 +650,8 @@
                 statsDesc: '实时监控网站访问情况和流量数据',
                 refresh: '刷新',
                 totalViews: '总访问量',
+                homeViews: '首页访问量',
+                homePage: '首页',
                 totalPosts: '总文章数',
                 totalIPs: '独立IP',
                 totalRecords: '访问记录',
@@ -695,6 +701,8 @@
                 statsDesc: 'Real-time monitoring of website traffic and access data',
                 refresh: 'Refresh',
                 totalViews: 'Total Views',
+                homeViews: 'Home Views',
+                homePage: 'Home',
                 totalPosts: 'Total Posts',
                 totalIPs: 'Unique IPs',
                 totalRecords: 'Access Records',
@@ -743,6 +751,13 @@
         function t(key) {
             return i18n[LANG]?.[key] || i18n['zh-CN'][key] || key;
         }
+
+        // 访问日志中的 IP、User-Agent、文章路径都来自请求或仓库，渲染前必须转义。
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[char]));
+        }
         
         // 更新页面语言
         function updatePageLanguage() {
@@ -754,12 +769,13 @@
             // 更新统计卡片标题
             const statTitles = document.querySelectorAll('.stat-card-title');
             statTitles[0].textContent = t('totalViews');
-            statTitles[1].textContent = t('totalPosts');
-            statTitles[2].textContent = t('totalIPs');
-            statTitles[3].textContent = t('returningUsers');
-            statTitles[4].textContent = t('retentionRate');
-            statTitles[5].textContent = t('avgDepth');
-            if (statTitles[6]) statTitles[6].textContent = t('totalShortlinkViews');
+            statTitles[1].textContent = t('homeViews');
+            statTitles[2].textContent = t('totalPosts');
+            statTitles[3].textContent = t('totalIPs');
+            statTitles[4].textContent = t('returningUsers');
+            statTitles[5].textContent = t('retentionRate');
+            statTitles[6].textContent = t('avgDepth');
+            if (statTitles[7]) statTitles[7].textContent = t('totalShortlinkViews');
             
             // 更新图表标题
             document.querySelectorAll('.chart-title')[0].textContent = t('dateChart');
@@ -821,6 +837,7 @@
                 
                 // 更新统计卡片
                 document.getElementById('totalViews').textContent = data.summary.totalViews.toLocaleString();
+                document.getElementById('homeViews').textContent = (data.summary.homeViews || 0).toLocaleString();
                 document.getElementById('totalPosts').textContent = data.summary.totalPosts.toLocaleString();
                 document.getElementById('totalIPs').textContent = data.summary.totalIPs.toLocaleString();
                 document.getElementById('returningUsers').textContent = data.summary.returningUsers.toLocaleString();
@@ -1217,10 +1234,10 @@
 
             tbody.innerHTML = data.map(ip => `
                 <tr>
-                    <td class="ip-cell">${ip.ip}</td>
-                    <td class="ip-location" data-ip="${ip.ip}">${t('loading')}</td>
+                    <td class="ip-cell">${escapeHtml(ip.ip)}</td>
+                    <td class="ip-location" data-ip="${escapeHtml(ip.ip)}">${t('loading')}</td>
                     <td><span class="badge badge-primary">${ip.count}</span></td>
-                    <td>${ip.posts}</td>
+                    <td>${escapeHtml(ip.posts)}</td>
                     <td>${formatDateTime(ip.firstVisit)}</td>
                     <td>${formatDateTime(ip.lastVisit)}</td>
                 </tr>
@@ -1308,7 +1325,8 @@
 
         // 更新 IP 归属地单元格
         function updateIpLocationCell(ip, location) {
-            const cells = document.querySelectorAll(`.ip-location[data-ip="${ip}"]`);
+            const escaped = window.CSS && CSS.escape ? CSS.escape(ip) : String(ip).replace(/["\\]/g, '\\$&');
+            const cells = document.querySelectorAll(`.ip-location[data-ip="${escaped}"]`);
             cells.forEach(cell => {
                 cell.textContent = location;
             });
@@ -1323,7 +1341,7 @@
             
             tbody.innerHTML = data.map(post => `
                 <tr>
-                    <td>${post.filePath}</td>
+                    <td>${escapeHtml(post.filePath)}</td>
                     <td><span class="badge badge-primary">${post.count}</span></td>
                     <td>${post.uniqueIPs}</td>
                 </tr>
@@ -1340,12 +1358,13 @@
 
             tbody.innerHTML = data.map(item => {
                 const shortUrl = `${window.location.origin}/s/${item.code}`;
+                const safeUrl = escapeHtml(shortUrl);
                 return `
                 <tr>
-                    <td class="ip-cell"><a href="${shortUrl}" target="_blank" rel="noopener">/s/${item.code}</a></td>
-                    <td>${item.filePath || ''}</td>
+                    <td class="ip-cell"><a href="${safeUrl}" target="_blank" rel="noopener">${escapeHtml('/s/' + item.code)}</a></td>
+                    <td>${escapeHtml(item.filePath || '')}</td>
                     <td><span class="badge badge-primary">${item.count}</span></td>
-                    <td><button class="copy-shortlink-btn badge" data-url="${shortUrl}">${t('copyShortlink')}</button></td>
+                    <td><button class="copy-shortlink-btn badge" data-url="${safeUrl}">${t('copyShortlink')}</button></td>
                 </tr>`;
             }).join('');
 
@@ -1375,10 +1394,10 @@
             tbody.innerHTML = data.map(log => `
                 <tr>
                     <td>${formatDateTime(log.timestamp)}</td>
-                    <td class="ip-cell">${log.ip}</td>
-                    <td class="ip-location" data-ip="${log.ip}">${t('loading')}</td>
-                    <td>${log.filePath}</td>
-                    <td>${log.browser || t('unknown')}</td>
+                    <td class="ip-cell">${escapeHtml(log.ip)}</td>
+                    <td class="ip-location" data-ip="${escapeHtml(log.ip)}">${t('loading')}</td>
+                    <td>${escapeHtml(log.filePath === '/' ? t('homePage') : log.filePath)}</td>
+                    <td>${escapeHtml(log.browser || t('unknown'))}</td>
                 </tr>
             `).join('');
 

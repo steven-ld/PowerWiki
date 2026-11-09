@@ -11,6 +11,9 @@ config.json
 .git-repos/
 .git-cache/
 
+# Local git worktrees
+.worktrees/
+
 # Logs
 *.log
 npm-debug.log*

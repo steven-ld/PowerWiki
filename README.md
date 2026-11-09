@@ -143,9 +143,14 @@ Edit `config.json`:
   "siteTitle": "My Wiki",
   "siteDescription": "Knowledge Base",
   "autoSyncInterval": 180000,
+  "html": {
+    "enabled": true,
+    "sanitize": true
+  },
   "pages": {
     "home": "README.md",
-    "about": "ABOUT.md"
+    "about": "ABOUT.md",
+    "notFound": "404.html"
   }
 }
 ```
@@ -162,6 +167,14 @@ Edit `config.json`:
 | `sortOrder` | Sort order (`modified` or `name`) | `modified` |
 | `pages.home` | Home page file | `""` |
 | `pages.about` | About page file | `""` |
+| `pages.notFound` | Custom 404 page (`.html` or `.md`) | built-in page |
+| `html.enabled` | Include repository HTML files as articles | `true` |
+| `html.sanitize` | Sanitize the article body with an allowlist | `true` |
+| `html.csp` | Override the Content-Security-Policy of the configured 404 page | `""` |
+
+HTML files behave like Markdown articles: they appear in the sidebar, are served at `/post/docs/page.html`, and use the same reading view (TOC, copy, raw view, share link, SEO tags and view counting). Legacy URLs redirect to that article URL with a 301: `/docs/page` and `/docs/page.html` → `/post/docs/page.html`, `/docs/` → `/post/docs/index.html`. Only the `<body>` is rendered; `<title>`, `<meta name="description">` and `<meta name="keywords">` become the article metadata.
+
+The body is sanitized by default — `<script>`, `<style>`, `<iframe>`, forms, inline event handlers and `style` attributes are removed, and `javascript:` URLs are dropped. Relative URLs are rewritten server-side: images go to `/api/image/...`, links to other HTML/Markdown/PDF files go to `/post/...`, and other assets (such as `static/site.css`) are resolved from the page's directory, so no `Referer` is required. Root-absolute URLs (`/static/...`, `/api/image/...`) are left unchanged; same-level `static/` lookup for them still uses the article page's `Referer`, which is mapped back to the repository directory. Set `html.sanitize` to `false` only for fully trusted content (the legacy `html.sandbox: false` still works and maps to the same mode). Directories named `static/` are not treated as article containers. If `pages.notFound` is empty or missing, the built-in 404 page is used.
 
 ## 🌍 Environment Variables
 
@@ -454,6 +467,7 @@ PowerWiki/
 │   ├── routes/              # Route modules
 │   │   ├── api.js           # API routes
 │   │   ├── feeds.js         # RSS/Sitemap routes
+│   │   ├── html.js          # HTML article redirects & repo assets
 │   │   └── static.js        # Static file routes
 │   ├── config/              # Configuration
 │   │   ├── env.js           # Environment variables
@@ -461,6 +475,7 @@ PowerWiki/
 │   └── utils/               # Utility modules
 │       ├── cacheManager.js  # Cache management
 │       ├── gitManager.js    # Git operations
+│       ├── htmlArticle.js   # HTML article sanitizing & URL rewriting
 │       └── markdownParser.js# Markdown parser
 ├── locales/                 # Translation files
 │   ├── zh-CN.json           # Chinese translations

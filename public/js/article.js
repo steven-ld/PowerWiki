@@ -401,7 +401,7 @@ function renderPost(post) {
   postBody.style.display = '';
 
   // 显示文件名（从路径中提取）
-  const fileName = post.path.split('/').pop().replace(/\.(md|markdown|pdf)$/i, '');
+  const fileName = post.path.split('/').pop().replace(/\.(md|markdown|pdf|html|htm)$/i, '');
   if (postFileName) {
     postFileName.innerHTML = `
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">

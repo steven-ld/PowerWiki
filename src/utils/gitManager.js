@@ -12,6 +12,11 @@ const fs = require('fs-extra');
 const path = require('path');
 const { spawn } = require('child_process');
 const { t } = require('../config/i18n');
+const {
+  HTML_EXTENSIONS,
+  MARKDOWN_EXTENSIONS,
+  resolveRepoFile
+} = require('./safePath');
 
 /**
  * Git 仓库管理器
@@ -302,16 +307,20 @@ class GitManager {
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
 
-        // 跳过 .git 目录和 images 文件夹
+        // 跳过 .git 目录、images/static 资源目录、隐藏文件与软链接。
+        // 软链接可能指向仓库外，读取时会被 safePath 拒绝，这里提前排除。
         if (entry.name === '.git' || entry.name === 'images') continue;
+        if (entry.isDirectory() && entry.name === 'static') continue;
+        if (entry.name.startsWith('.') || entry.isSymbolicLink()) continue;
 
         if (entry.isDirectory()) {
           await scanDirectory(fullPath);
-        } else if (entry.name.endsWith('.md') || entry.name.endsWith('.markdown') || entry.name.endsWith('.pdf')) {
+        } else if (/\.(md|markdown|pdf|html?|htm)$/i.test(entry.name)) {
           const relativePath = path.relative(this.repoPath, fullPath).replace(/\\/g, '/');
           const stats = await fs.stat(fullPath);
 
           const info = dates.get(relativePath) || {};
+          const extension = path.extname(entry.name).toLowerCase();
           const file = {
             path: relativePath,
             fullPath: fullPath,
@@ -319,7 +328,8 @@ class GitManager {
             created: info.created || stats.birthtime,
             modified: info.modified || stats.mtime,
             size: stats.size,
-            type: entry.name.endsWith('.pdf') ? 'pdf' : 'markdown'
+            type: extension === '.pdf' ? 'pdf'
+              : HTML_EXTENSIONS.has(extension) ? 'html' : 'markdown'
           };
           files.push(file);
           if (renamed.has(relativePath) || merged.has(relativePath)) historyFiles.push(file);
@@ -348,19 +358,34 @@ class GitManager {
     });
   }
 
+  /**
+   * 文件路径来自仓库扫描结果或配置，已经是解码后的文件系统路径，
+   * 因此不再做 URL 解码，只做仓库内路径与扩展名校验。
+   */
   async readMarkdownFile(filePath) {
-    const fullPath = path.join(this.repoPath, filePath);
-    if (await fs.pathExists(fullPath)) {
-      return await fs.readFile(fullPath, 'utf-8');
-    }
+    const file = await resolveRepoFile(this.repoPath, filePath, {
+      extensions: MARKDOWN_EXTENSIONS,
+      decoded: true
+    });
+    if (file) return await fs.readFile(file.absolute, 'utf-8');
+    throw new Error(`文件不存在: ${filePath}`);
+  }
+
+  async readHtmlFile(filePath) {
+    const file = await resolveRepoFile(this.repoPath, filePath, {
+      extensions: HTML_EXTENSIONS,
+      decoded: true
+    });
+    if (file) return await fs.readFile(file.absolute, 'utf-8');
     throw new Error(`文件不存在: ${filePath}`);
   }
 
   async readPdfFile(filePath) {
-    const fullPath = path.join(this.repoPath, filePath);
-    if (await fs.pathExists(fullPath)) {
-      return await fs.readFile(fullPath);
-    }
+    const file = await resolveRepoFile(this.repoPath, filePath, {
+      extensions: new Set(['.pdf']),
+      decoded: true
+    });
+    if (file) return await fs.readFile(file.absolute);
     throw new Error(`文件不存在: ${filePath}`);
   }
 
@@ -413,19 +438,22 @@ class GitManager {
   }
 
   async getFileInfo(filePath) {
-    const fullPath = path.join(this.repoPath, filePath);
-    if (await fs.pathExists(fullPath)) {
-      const stats = await fs.stat(fullPath);
+    const file = await resolveRepoFile(this.repoPath, filePath, { decoded: true });
+    if (file) {
+      const [gitCreated, gitModified, stats] = await Promise.all([
+        this.getFileCreatedTime(file.relative),
+        this.getFileModifiedTime(file.relative),
+        fs.stat(file.absolute)
+      ]);
 
-      const gitCreated = await this.getFileCreatedTime(filePath);
-      const gitModified = await this.getFileModifiedTime(filePath);
-
+      const extension = path.extname(file.relative).toLowerCase();
       return {
-        path: filePath,
-        name: path.basename(filePath),
+        path: file.relative,
+        name: path.basename(file.relative),
         created: gitCreated || stats.birthtime,
         modified: gitModified || stats.mtime,
-        size: stats.size
+        size: file.size,
+        type: extension === '.pdf' ? 'pdf' : HTML_EXTENSIONS.has(extension) ? 'html' : 'markdown'
       };
     }
     return null;
