@@ -14,11 +14,15 @@ const fs = require('fs-extra');
 const HTML_EXTENSIONS = new Set(['.html', '.htm']);
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown']);
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.avif', '.bmp']);
+// 数据类文件可能包含配置或私密内容，只在显式的 static/ 资源目录里提供，
+// 不接受“与引用页面同级”这一条宽松规则。
+const DATA_EXTENSIONS = new Set(['.json', '.txt', '.xml', '.csv', '.yaml', '.yml', '.toml']);
+
 const ASSET_EXTENSIONS = new Set([
   ...IMAGE_EXTENSIONS,
   '.css', '.js', '.mjs',
   '.woff', '.woff2', '.ttf', '.otf', '.eot',
-  '.json', '.txt', '.xml', '.csv', '.yaml', '.yml', '.toml',
+  ...DATA_EXTENSIONS,
   '.mp3', '.wav', '.ogg', '.m4a',
   '.mp4', '.webm', '.ogv',
   '.pdf', '.wasm'
@@ -142,6 +146,7 @@ module.exports = {
   MARKDOWN_EXTENSIONS,
   IMAGE_EXTENSIONS,
   ASSET_EXTENSIONS,
+  DATA_EXTENSIONS,
   MAX_FILE_SIZE,
   extensionOf,
   isInside,

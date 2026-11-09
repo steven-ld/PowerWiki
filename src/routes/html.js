@@ -16,6 +16,7 @@ const fs = require('fs-extra');
 const { t } = require('../config/i18n');
 const {
   ASSET_EXTENSIONS,
+  DATA_EXTENSIONS,
   HTML_EXTENSIONS,
   IMAGE_EXTENSIONS,
   MARKDOWN_EXTENSIONS,
@@ -76,11 +77,10 @@ const CSP_RESOURCES = [
 
 const DOCUMENT_SANDBOX = 'sandbox allow-scripts allow-forms allow-popups ' +
   'allow-popups-to-escape-sandbox allow-modals allow-downloads allow-top-navigation-by-user-activation';
-// 完整页面模式不给 allow-same-origin，也不限制 frame-ancestors：
-// 文档处于不透明源，脚本能运行但拿不到 Wiki 的同源能力。
+// 完整页面模式不给 allow-same-origin：文档处于不透明源，脚本能运行但拿不到
+// Wiki 的同源能力。frame-ancestors 'self' 仍然保留，只允许本站嵌入。
 const ISOLATED_SANDBOX = 'sandbox allow-scripts allow-forms allow-popups ' +
   'allow-modals allow-downloads allow-top-navigation-by-user-activation';
-const ISOLATED_RESOURCES = CSP_RESOURCES.filter(rule => !rule.startsWith('frame-ancestors'));
 
 /**
  * 配置的 404 页面仍作为独立文档输出，使用这里的默认 CSP 并放进沙箱，
@@ -95,7 +95,7 @@ function buildCsp(sandbox) {
  * 文章内嵌完整页面的 CSP：脚本可用，但始终处于沙箱（不透明源）。
  */
 function buildSandboxCsp() {
-  return `${ISOLATED_SANDBOX}; ${ISOLATED_RESOURCES.join('; ')}`;
+  return `${ISOLATED_SANDBOX}; ${CSP_RESOURCES.join('; ')}`;
 }
 
 function applyDocumentHeaders(res, settings) {
@@ -211,6 +211,8 @@ function assetCandidates(pathname, req) {
   const directory = refererDirectory(req);
   const requestedDirectory = segments.slice(0, -1).join('/');
   const inStaticDirectory = segments.includes('static');
+  // 数据类文件可能含配置或私密内容，只接受显式 static/ 目录，不接受同级规则。
+  if (!inStaticDirectory && DATA_EXTENSIONS.has(extensionOf(segments[segments.length - 1]))) return [];
   if (!inStaticDirectory && (!directory || requestedDirectory !== directory)) return [];
   return [segments.join('/')];
 }
@@ -222,6 +224,30 @@ async function firstExisting(repoPath, candidates, extensions) {
     if (file) return file;
   }
   return null;
+}
+
+/**
+ * /full/ 的页面回退候选：页面里的 `guide/`、`guide` 链接分别对应
+ * `guide/index.html` 与 `guide.html`。原文命中时不会走到这里。
+ */
+function fullHtmlCandidates(relativePath) {
+  const decoded = safeDecodePath(relativePath);
+  if (decoded === null) return [];
+  const clean = cleanUrlPath(decoded);
+  const segments = clean.split('/').filter(Boolean);
+  if (!segments.length || hasUnsafeSegment(segments)) return [];
+
+  const base = segments.join('/');
+  if (clean.endsWith('/')) return [`${base}/index.html`, `${base}/index.htm`];
+  // 带扩展名（包括资源文件）时不补全，避免把 .css 解析成 .css.html。
+  if (extensionOf(clean)) return [];
+  return [`${base}.html`, `${base}.htm`, `${base}/index.html`, `${base}/index.htm`];
+}
+
+async function resolveFullFile(repoPath, relativePath) {
+  const file = await resolveRequestFile(repoPath, relativePath, { extensions: FULL_EXTENSIONS });
+  if (file) return file;
+  return firstExisting(repoPath, fullHtmlCandidates(relativePath), HTML_EXTENSIONS);
 }
 
 function isInsideReservedPath(pathname) {
@@ -248,9 +274,7 @@ function createHtmlRoutes({ gitManager, config }) {
     if (!relativePath) return next();
 
     try {
-      const file = await resolveRequestFile(gitManager.repoPath, relativePath, {
-        extensions: FULL_EXTENSIONS
-      });
+      const file = await resolveFullFile(gitManager.repoPath, relativePath);
       if (!file) return next();
 
       if (HTML_EXTENSIONS.has(file.extension)) {
@@ -263,10 +287,14 @@ function createHtmlRoutes({ gitManager, config }) {
         return res.sendFile(file.absolute, { dotfiles: 'allow' });
       }
 
+      // 沙箱文档处于不透明源，浏览器会把它的子资源请求视为跨源：
+      // CORP 必须是 cross-origin（否则 CSS/JS/图片被 blocked by response），
+      // 字体等 CORS 模式请求还需要 ACAO。这些文件本来就对匿名访问公开。
       const headers = {
         'X-Content-Type-Options': 'nosniff',
         'Cache-Control': 'public, max-age=0, must-revalidate',
-        'Cross-Origin-Resource-Policy': 'same-site'
+        'Cross-Origin-Resource-Policy': 'cross-origin',
+        'Access-Control-Allow-Origin': '*'
       };
       // 直接打开 SVG 时禁止脚本执行，和仓库静态资源保持一致。
       if (file.extension === '.svg') {
@@ -354,7 +382,11 @@ function renderDefaultNotFound(content = notFoundContent()) {
  */
 function createNotFoundHandler({ gitManager, config }) {
   return async function notFoundHandler(req, res, next) {
-    if (res.headersSent) return next();
+    // 也允许不作为 Express 中间件直接调用（例如 /post/* 的兜底），此时没有 next。
+    if (res.headersSent) {
+      if (typeof next === 'function') next();
+      return;
+    }
 
     if (req.path === '/api' || req.path.startsWith('/api/')) {
       return res.status(404).json({ error: 'Not found' });

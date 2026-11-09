@@ -7,6 +7,7 @@ const net = require('node:net');
 const { spawn, execFileSync } = require('node:child_process');
 const { once } = require('node:events');
 const {
+  MAX_FILE_SIZE,
   resolveRepoFile,
   resolveRequestFile,
   safeDecodePath
@@ -48,6 +49,12 @@ test('safePath rejects traversal, hidden files, symlinks and wrong extensions', 
     assert.equal(await resolveRepoFile(root, 'link.txt'), null);
     assert.equal(await resolveRepoFile(root, 'docs/'), null);
 
+    // 超过 50 MB 的文件不提供（稀疏文件，truncate 不会真的写入磁盘）。
+    const bigHandle = await fs.open(path.join(root, 'big.css'), 'w');
+    await bigHandle.truncate(MAX_FILE_SIZE + 1);
+    await bigHandle.close();
+    assert.equal(await resolveRepoFile(root, 'big.css', { extensions: new Set(['.css']) }), null);
+
     await fs.writeFile(path.join(root, '100%.html'), '<h1>percent</h1>');
     const percent = await resolveRequestFile(root, '100%.html', { extensions: new Set(['.html']) });
     assert.equal(percent && percent.relative, '100%.html');
@@ -84,6 +91,10 @@ test('HTML articles are sanitized and their assets rewritten', () => {
 
   // 没有 <title> 时用正文第一个 h1 作为标题。
   assert.equal(parseHtmlArticle('<body><h1>Only</h1></body>', 'docs/a.htm').title, 'Only');
+
+  // 越界的数字实体不能让整篇文章解析失败。
+  assert.equal(parseHtmlArticle('<title>&#x110000;</title><body>x</body>', 'bad.html').title, '�');
+  assert.equal(parseHtmlArticle('<title>&#9999999999;</title><body>x</body>', 'bad.html').title, '�');
 });
 
 test('sandbox render mode embeds the original page in an isolated iframe', () => {
@@ -151,6 +162,23 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
   await fs.writeFile(path.join(repo, '404.html'), '<!DOCTYPE html><html><body>CUSTOM_404_MARKER</body></html>');
   await fs.writeFile(path.join(repo, 'package.json'), '{"name":"leak"}');
   await fs.writeFile(path.join(repo, 'secret.txt'), 'leak');
+
+  // /full/ 的目录回退、数据文件限制与软链接防护。
+  await fs.mkdir(path.join(repo, 'docs', 'sub'), { recursive: true });
+  await fs.writeFile(path.join(repo, 'docs', 'sub', 'index.html'),
+    '<!DOCTYPE html><html><body><h1>SUB_INDEX</h1></body></html>');
+  await fs.mkdir(path.join(repo, 'docs', 'static'), { recursive: true });
+  await fs.writeFile(path.join(repo, 'docs', 'data.json'), '{"secret":"same-dir"}');
+  await fs.writeFile(path.join(repo, 'docs', 'static', 'data.json'), '{"ok":"static-dir"}');
+  await fs.writeFile(path.join(repo, 'static', 'data.txt'), 'top-level-static');
+  const outsideDir = path.join(root, 'outside');
+  await fs.mkdir(outsideDir);
+  await fs.writeFile(path.join(outsideDir, 'outside.css'), 'body{color:red}');
+  await fs.symlink(path.join(outsideDir, 'outside.css'), path.join(repo, 'docs', 'leak.css'));
+
+  // 首页也可以是 HTML 文章。
+  await fs.writeFile(path.join(repo, 'home.html'),
+    '<!DOCTYPE html><html><head><title>Home HTML</title></head><body><h1>HOME_HTML</h1></body></html>');
 
   const git = (...args) => execFileSync('git', args, { cwd: repo });
   git('init', '-b', 'master');
@@ -255,6 +283,8 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     assert.match(fullCsp, /sandbox/);
     assert.match(fullCsp, /script-src/);
     assert.doesNotMatch(fullCsp, /allow-same-origin/);
+    // 仍只允许同源页面嵌入。
+    assert.match(fullCsp, /frame-ancestors 'self'/);
     assert.equal(fullPage.headers.get('x-content-type-options'), 'nosniff');
     const fullPageBody = await fullPage.text();
     assert.match(fullPageBody, /<script>window\.__FULL__/);
@@ -265,9 +295,20 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     const frameCss = await request('/full/docs/frame.css');
     assert.equal(frameCss.status, 200);
     assert.match(frameCss.headers.get('content-type'), /text\/css/);
+    // 沙箱文档是不透明源，它的子资源请求按跨源处理；same-site 会被浏览器拦截。
+    assert.equal(frameCss.headers.get('cross-origin-resource-policy'), 'cross-origin');
+    assert.equal(frameCss.headers.get('access-control-allow-origin'), '*');
     assert.equal((await request('/full/docs/assets/deep.css')).status, 200);
     const fullLevel = await request('/static/site.css', { headers: { referer: `${origin}/full/docs/full.html` } });
     assert.match(await fullLevel.text(), /rgb\(1,2,3\)/);
+    // 目录形式与省略 .html 的地址在 /full/ 下同样可用。
+    for (const url of ['/full/docs/sub/', '/full/docs/sub']) {
+      const response = await request(url);
+      assert.equal(response.status, 200, url);
+      assert.match(await response.text(), /SUB_INDEX/, url);
+    }
+    // 软链接不能借 /full/ 读到仓库外的文件。
+    assert.equal((await request('/full/docs/leak.css')).status, 404);
     // 数据文件和仓库敏感文件不能通过 /full/ 下载。
     assert.equal((await request('/full/package.json')).status, 404);
     assert.equal((await request('/full/secret.txt')).status, 404);
@@ -317,6 +358,12 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     assert.equal((await request('/docs/static/picture.png')).status, 200);
     assert.equal((await request('/package.json')).status, 404);
     assert.equal((await request('/secret.txt')).status, 404);
+    // 数据文件只允许来自 static/ 目录，同级目录即使伪造 Referer 也不提供。
+    assert.equal((await request('/docs/data.json', { headers: { referer: `${origin}/post/docs/guide.html` } })).status, 404);
+    const staticJson = await request('/docs/static/data.json');
+    assert.equal(staticJson.status, 200);
+    assert.match(await staticJson.text(), /static-dir/);
+    assert.equal((await request('/static/data.txt')).status, 200);
 
     // 图片/PDF 接口同样受路径穿越防护约束。
     assert.equal((await request('/api/image/..%2fpackage.json')).status, 404);
@@ -343,6 +390,15 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     assert.equal(stats.ipStats[0].posts, before.ipStats[0].posts);
     assert.equal(stats.summary.totalRecords, before.summary.totalRecords + 2);
 
+    // 首页可以配置为 HTML 文章，走同一条解析链路。
+    await fs.writeFile(configPath, JSON.stringify({ ...config, pages: { home: 'home.html', notFound: '404.html' } }));
+    await until(async () => (await (await request('/')).text()).includes('HOME_HTML'), 15000);
+    const homeResponse = await request('/');
+    assert.equal(homeResponse.status, 200);
+    assert.match(await homeResponse.text(), /<div id="homeContent"[^>]*>[\s\S]*HOME_HTML/);
+    const homePosts = await (await request('/api/posts')).json();
+    assert.equal(homePosts.flat.some(file => file.path === 'home.html'), true);
+
     // 配置的 404 文件缺失时回退到内置页面。
     await fs.writeFile(configPath, JSON.stringify({ ...config, pages: { home: 'README.md', notFound: 'missing-404.html' } }));
     await until(async () => {
@@ -354,6 +410,19 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     const fallbackBody = await fallback.text();
     assert.match(fallbackBody, /class="not-found"/);
     assert.match(fallbackBody, /<title>404 - .+<\/title>/);
+
+    // 关闭 HTML 文章后，页面不再收录、不再渲染，也不通过 /full/ 提供。
+    await fs.writeFile(configPath,
+      JSON.stringify({ ...config, html: { enabled: false }, pages: { home: 'README.md', notFound: '' } }));
+    await until(async () => {
+      const list = await (await request('/api/posts')).json();
+      return list.flat.every(file => file.type !== 'html');
+    }, 15000);
+    assert.equal((await request('/docs/guide.html', { redirect: 'manual' })).status, 404);
+    assert.equal((await request('/full/docs/full.html')).status, 404);
+    assert.equal((await request('/api/post/docs/guide.html')).status, 404);
+    const markdownPosts = await (await request('/api/posts')).json();
+    assert.equal(markdownPosts.flat.some(file => file.path === 'README.md'), true);
   } catch (error) {
     error.message += '\n' + output;
     throw error;

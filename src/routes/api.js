@@ -427,12 +427,17 @@ function createApiRoutes(options) {
   async function getHomeContent() {
     const version = getVersion();
     if (!config.pages.home) return null;
+    // 关闭 HTML 文章时，HTML 首页也一并停用，避免绕过开关继续渲染。
+    if (/\.(html?|htm)$/i.test(config.pages.home) && !htmlSettings(config).enabled) return null;
     if (!pendingHome || pendingHome.version !== version) {
       const homePath = config.pages.home;
-      const promise = gitManager.readMarkdownFile(homePath).then(content => {
-        const parsed = parseMarkdown(content, homePath);
-        return { html: parsed.html, title: parsed.title || '首页', path: homePath };
-      });
+      // 首页与普通文章一致：.html 按 HTML 文章解析，其余按 Markdown。
+      const isHtml = /\.(html?|htm)$/i.test(homePath);
+      const promise = (isHtml
+        ? gitManager.readHtmlFile(homePath).then(content =>
+            parseHtmlArticle(content, homePath, { sanitize: htmlSettings(config).sanitize }))
+        : gitManager.readMarkdownFile(homePath).then(content => parseMarkdown(content, homePath)))
+        .then(parsed => ({ html: parsed.html, title: parsed.title || '首页', path: homePath }));
       pendingHome = { version, promise };
       promise.catch(() => { if (pendingHome && pendingHome.promise === promise) pendingHome = null; });
     }
