@@ -37,6 +37,8 @@ function recordHomeView() {
 // 回到首页
 function goToHome() {
   stopPdfRendering();
+  // 首页不保留沉浸式阅读的展开状态
+  if (typeof exitReaderMode === 'function') exitReaderMode({ restoreScroll: false, restoreFocus: false });
   try {
     homeView.classList.add('active');
     postView.classList.remove('active');
@@ -211,6 +213,7 @@ window.addEventListener('popstate', (e) => {
     loadPost(e.state.path);
   } else {
     stopPdfRendering();
+    if (typeof exitReaderMode === 'function') exitReaderMode({ restoreScroll: false, restoreFocus: false });
     homeView.classList.add('active');
     postView.classList.remove('active');
     currentPost = null;

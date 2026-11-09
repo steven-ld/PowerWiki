@@ -121,7 +121,7 @@
                         </div>
                         <div class="post-actions">
                             <a class="fullpage-btn" id="fullPageBtn" target="_blank" rel="noopener noreferrer"
-                               data-i18n-title="client.openFullPageTitle">
+                               aria-expanded="false" data-i18n-title="client.openFullPageTitle">
                                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                                     <path d="M8.5 2H12v3.5M12 2L8.5 5.5M5.5 12H2V8.5M2 12l3.5-3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
                                 </svg>
@@ -157,6 +157,15 @@
                 </article>
             </div>
         </main>
+
+        <!-- 沉浸式阅读：退出入口（仅展开态可见，固定在内容区右上角） -->
+        <button class="reader-exit-btn" id="readerExitBtn" type="button"
+                data-i18n-title="client.exitFullPage">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M5.5 2H2v3.5M2 2l3.5 3.5M8.5 12H12V8.5M12 12L8.5 8.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="client.exitFullPage">退出全屏</span>
+        </button>
 
         <!-- 右侧目录栏 -->
         <aside class="toc-sidebar" id="tocSidebar">

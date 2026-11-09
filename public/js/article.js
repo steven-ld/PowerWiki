@@ -12,6 +12,85 @@ const rawToggleBtn = document.getElementById('rawToggleBtn');
 const rawBody = document.getElementById('rawBody');
 const shareBtn = document.getElementById('shareBtn');
 const fullPageBtn = document.getElementById('fullPageBtn');
+const readerExitBtn = document.getElementById('readerExitBtn');
+
+/* ========== 沉浸式阅读 ==========
+   HTML 文章的「全屏」不再跳转 /full/ 独立页面，而是在当前页把正文画布展开到
+   视口大小：桌面端保留左侧目录，移动端收紧留白并收起抽屉侧栏，右上角提供退出按钮。
+   展开状态挂在 body 上，只影响布局，不重载 iframe，因此页面内部的滚动位置不会丢。 */
+const READER_MODE_CLASS = 'reader-expanded';
+const READER_INSTANT_CLASS = 'reader-instant';
+let readerScrollY = 0;
+
+function isReaderMode() {
+  return document.body.classList.contains(READER_MODE_CLASS);
+}
+
+function enterReaderMode(options) {
+  const settings = options || {};
+  if (isReaderMode()) return;
+  readerScrollY = window.scrollY || 0;
+
+  // 打开 HTML 文章时直接是沉浸态，不播展开动画：页面此时刚画好，
+  // 再放一段从目录宽度撑开的过渡反而像布局抖动。
+  if (settings.animate === false) {
+    const root = document.documentElement;
+    root.classList.add(READER_INSTANT_CLASS);
+    requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove(READER_INSTANT_CLASS)));
+  }
+
+  // 移动端抽屉式侧栏如果正开着，先收起，避免压住正文
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (sidebar && sidebar.classList.contains('open')) {
+    sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+  }
+
+  document.documentElement.classList.add(READER_MODE_CLASS);
+  document.body.classList.add(READER_MODE_CLASS);
+  if (fullPageBtn) fullPageBtn.setAttribute('aria-expanded', 'true');
+  // 展开后画布从视口顶部开始，先回到顶部再让内容占满剩余高度
+  window.scrollTo(0, 0);
+  // 自动进入时不抢焦点：用户还没开始操作，焦点应该留在浏览器手里
+  if (settings.focusExit !== false && readerExitBtn) readerExitBtn.focus({ preventScroll: true });
+}
+
+function exitReaderMode(options) {
+  if (!isReaderMode()) return;
+  const settings = options || {};
+  document.documentElement.classList.remove(READER_MODE_CLASS);
+  document.body.classList.remove(READER_MODE_CLASS);
+  if (fullPageBtn) fullPageBtn.setAttribute('aria-expanded', 'false');
+  if (settings.restoreScroll !== false) window.scrollTo(0, readerScrollY);
+  if (settings.restoreFocus !== false && fullPageBtn) {
+    fullPageBtn.focus({ preventScroll: true });
+  }
+}
+
+function toggleReaderMode() {
+  if (isReaderMode()) exitReaderMode(); else enterReaderMode();
+}
+
+if (fullPageBtn) {
+  fullPageBtn.addEventListener('click', event => {
+    // 非 HTML 文章这个入口是隐藏的，不响应
+    if (!fullPageBtn.getAttribute('href')) return;
+    // 修饰键与中键仍然交给浏览器：需要真正的新标签页时依然可用
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    toggleReaderMode();
+  });
+}
+
+if (readerExitBtn) {
+  readerExitBtn.addEventListener('click', () => exitReaderMode());
+}
+
+document.addEventListener('keydown', event => {
+  // 焦点在沙箱 iframe 内时按键不会冒泡到这里，此时用右上角的退出按钮
+  if (event.key === 'Escape' && isReaderMode()) exitReaderMode();
+});
 
 // 按创建时间计算相邻文档，不修改菜单顺序或受搜索过滤影响。
 function getAdjacentPosts(files, currentPath) {
@@ -396,6 +475,9 @@ async function loadPost(filePath) {
 function renderPost(post) {
   if (typeof stopPdfRendering === 'function') stopPdfRendering();
 
+  // 切换文章时退出沉浸式阅读，避免上一页的展开状态带到下一篇
+  exitReaderMode({ restoreScroll: false, restoreFocus: false });
+
   // 复位视图切换状态：回到渲染视图并隐藏原始视图（防止上一篇残留）
   isRawView = false;
   if (rawBody) rawBody.style.display = 'none';
@@ -472,10 +554,12 @@ function renderPost(post) {
       tocSidebar.style.display = 'none';
     }
   } else {
-    // Markdown 文件：显示按钮，重置状态
-    if (copyDocBtn) copyDocBtn.style.display = 'inline-flex';
+    // Markdown 文件：显示按钮，重置状态。
+    // HTML 文章的正文是沙箱里的完整页面，复制正文和切换原文都拿不到有意义的内容，只留「全屏」「分享」。
+    const showDocTools = !isHtmlPost;
+    if (copyDocBtn) copyDocBtn.style.display = showDocTools ? 'inline-flex' : 'none';
     if (rawToggleBtn) {
-      rawToggleBtn.style.display = 'inline-flex';
+      rawToggleBtn.style.display = showDocTools ? 'inline-flex' : 'none';
       rawToggleBtn.classList.remove('active');
       rawToggleBtn.setAttribute('title', i18n.t('client.showRaw'));
       const rawBtnText = rawToggleBtn.querySelector('span');
@@ -633,6 +717,9 @@ function renderPost(post) {
       }
     }
   });
+
+  // HTML 文章本身就是一整页，默认直接以沉浸态打开；点右上角「退出全屏」回到带站点外壳的阅读视图
+  if (isHtmlPost) enterReaderMode({ animate: false, focusExit: false });
 }
 
 // 后台更新文章（用于更新访问量等可能变化的数据）

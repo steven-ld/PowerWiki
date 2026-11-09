@@ -86,6 +86,8 @@
   border-radius: 12px;
   background: #ffffff;
   box-shadow: var(--shadow-md);
+  transition: height .42s cubic-bezier(.2, .75, .25, 1),
+              border-radius .3s ease;
 }
 
 .html-sandbox-open {
@@ -106,6 +108,124 @@
   .html-sandbox-frame {
     height: 72vh;
     border-radius: 8px;
+  }
+}
+
+/* ========== 沉浸式阅读（HTML 全屏） ==========
+   由 article.js 切换 html/body 上的 .reader-expanded：
+   正文画布在保留左侧目录的前提下铺满视口，右上角出现退出入口。
+   宽度、留白与画布高度同时过渡，形成一次连贯的展开动作；
+   iframe 不重新加载，页面内部的滚动位置和状态都会保留。 */
+.view {
+  transition: max-width .42s cubic-bezier(.2, .75, .25, 1),
+              padding .42s cubic-bezier(.2, .75, .25, 1);
+}
+
+.main-content {
+  transition: margin-right .42s cubic-bezier(.2, .75, .25, 1);
+}
+
+/* 打开 HTML 文章即进入沉浸态：跳过展开过渡，避免首帧之后再撑开一次 */
+html.reader-instant .view,
+html.reader-instant .main-content,
+html.reader-instant .html-sandbox-frame {
+  transition: none !important;
+}
+
+html.reader-expanded,
+body.reader-expanded {
+  overflow: hidden;
+}
+
+/* 展开时让出整屏：文章信息、翻页、右侧目录和页脚暂时收起，退出后即时恢复 */
+body.reader-expanded .post-header,
+body.reader-expanded .post-navigation,
+body.reader-expanded .html-sandbox-open,
+body.reader-expanded .toc-sidebar,
+body.reader-expanded .toc-expand-btn,
+body.reader-expanded .site-footer,
+body.reader-expanded #mobileMenuBtn {
+  display: none !important;
+}
+
+body.reader-expanded .main-content {
+  margin-right: 0;
+  margin-bottom: 0;
+}
+
+body.reader-expanded .view {
+  max-width: 2400px;
+  padding: 56px 24px 20px;
+  min-height: 0;
+}
+
+body.reader-expanded .html-sandbox-frame {
+  height: calc(100vh - var(--header-height) - 76px);
+  height: calc(100dvh - var(--header-height) - 76px);
+  border-radius: 10px;
+}
+
+/* 退出入口：只在展开态出现，避开站点头部与文章操作区 */
+.reader-exit-btn {
+  position: fixed;
+  top: calc(var(--header-height) + 14px);
+  right: 24px;
+  z-index: 1200;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-body);
+  color: var(--text-body);
+  box-shadow: var(--shadow-sm);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease, background-color .15s ease;
+}
+
+.reader-exit-btn:hover {
+  background: var(--bg-hover);
+}
+
+.reader-exit-btn svg {
+  display: block;
+}
+
+body.reader-expanded .reader-exit-btn {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+  transition-delay: .1s;
+}
+
+@media (max-width: 768px) {
+  /* 移动端：侧栏本就收在抽屉里，展开时进一步贴边，只留退出入口 */
+  body.reader-expanded .view {
+    padding: 52px 8px 8px;
+  }
+
+  body.reader-expanded .html-sandbox-frame {
+    height: calc(100vh - 108px);
+    height: calc(100dvh - 108px);
+    border-radius: 8px;
+  }
+
+  .reader-exit-btn {
+    top: 56px;
+    right: 12px;
+    height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 }
 
