@@ -167,5 +167,12 @@
     "backgroundUpdatePostFailed": "Failed to update post in background",
     "updateStatsFailed": "Failed to update statistics",
     "backgroundUpdateStatsFailed": "Failed to update statistics in background"
+  },
+  "notFound": {
+    "title": "Page Not Found",
+    "description": "The page you requested does not exist or has been moved.",
+    "backHome": "Back to home",
+    "configuredMissing": "Configured 404 page was not found; using the default page",
+    "renderFailed": "Failed to render the 404 page"
   }
 }

@@ -25,6 +25,15 @@ function closeMobileMenu() {
   document.removeEventListener('touchmove', preventScroll);
 }
 
+// 记录首页访问。只在首页实际展示后调用，避免把爬虫的 HTML 请求计入。
+let lastHomeViewAt = 0;
+function recordHomeView() {
+  const now = Date.now();
+  if (now - lastHomeViewAt < 1000) return;
+  lastHomeViewAt = now;
+  fetch('/api/home/view', { method: 'POST' }).catch(() => {});
+}
+
 // 回到首页
 function goToHome() {
   stopPdfRendering();
@@ -64,6 +73,7 @@ function goToHome() {
 
     // 滚动到顶部
     window.scrollTo(0, 0);
+    recordHomeView();
   } catch (error) {
     console.error(i18n.t('client.goHomeFailed'), error);
   }
@@ -225,6 +235,7 @@ window.addEventListener('popstate', (e) => {
         tocSidebar.style.display = 'none';
       }
     }
+    recordHomeView();
   }
 });
 
@@ -246,4 +257,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupTOCCollapseEvents(); // 目录折叠事件
   setupRouting(); // 然后设置路由
   setupBackToTop(); // 设置返回顶部按钮
+
+  // 首屏就是首页时记录一次访问；文章页由文章接口自行计数。
+  if (!currentPost && window.location.pathname === '/') recordHomeView();
 });

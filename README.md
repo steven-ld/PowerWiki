@@ -143,9 +143,14 @@ Edit `config.json`:
   "siteTitle": "My Wiki",
   "siteDescription": "Knowledge Base",
   "autoSyncInterval": 180000,
+  "html": {
+    "enabled": true,
+    "sandbox": true
+  },
   "pages": {
     "home": "README.md",
-    "about": "ABOUT.md"
+    "about": "ABOUT.md",
+    "notFound": "404.html"
   }
 }
 ```
@@ -162,6 +167,12 @@ Edit `config.json`:
 | `sortOrder` | Sort order (`modified` or `name`) | `modified` |
 | `pages.home` | Home page file | `""` |
 | `pages.about` | About page file | `""` |
+| `pages.notFound` | Custom 404 page (`.html` or `.md`) | built-in page |
+| `html.enabled` | Serve HTML pages from the repository | `true` |
+| `html.sandbox` | Run repository HTML in a sandboxed origin | `true` |
+| `html.csp` | Override the default Content-Security-Policy | `""` |
+
+Repository HTML pages can be opened without the `.html` suffix: `/docs/page` serves `docs/page.html`, and `/docs/` serves `docs/index.html`. Relative assets under `/static/...` resolve to `<page-directory>/static/...` first, then to the repository-level `static/...`. Repository HTML runs in a sandboxed origin by default, so it cannot read the wiki's cookies, `localStorage`, or same-origin APIs; set `html.sandbox` to `false` only for fully trusted content. If `pages.notFound` is empty or missing, the built-in 404 page is used.
 
 ## 🌍 Environment Variables
 

@@ -22,6 +22,7 @@ const { renderPage } = require('./utils/pageRenderer');
 const { createApiRoutes } = require('./routes/api');
 const { createApiFeedRoutes } = require('./routes/feeds');
 const { createStaticRoutes } = require('./routes/static');
+const { createHtmlRoutes, createNotFoundHandler } = require('./routes/html');
 const { createAssetManager } = require('./utils/assetManager');
 
 const app = express();
@@ -319,6 +320,9 @@ const apiRoutes = createApiRoutes(apiOptions);
 app.use('/api', apiRoutes);
 app.use('/api', createStaticRoutes(apiOptions));
 
+// 仓库 HTML 页面与静态资源，以及统一的 404 处理。
+const notFoundHandler = createNotFoundHandler({ gitManager, config });
+
 // 注册 Feed 路由（RSS 和 Sitemap）
 const feedsRouter = createApiFeedRoutes({
   config,
@@ -359,7 +363,7 @@ Sitemap: ${baseUrl}/sitemap.xml
 app.get('/s/:code', async (req, res) => {
   try {
     const file = (await apiRoutes.addressIndex()).codes.get(req.params.code);
-    if (!file) return res.status(404).send('Article not found');
+    if (!file) return notFoundHandler(req, res);
     require('./routes/api').recordShortlinkView(statsFilePath, req.params.code, file.path);
     res.redirect(302, file.url);
   } catch (error) { res.status(503).send('Service unavailable'); }
@@ -371,13 +375,14 @@ app.get(['/post/*', '/article/*'], async (req, res) => {
     // Express already decoded route parameters; decoding twice breaks literal % filenames.
     const prefix = req.path.startsWith('/article/') ? '/article/' : '/post/';
     const file = (await apiRoutes.addressIndex()).routes.get(prefix + req.params[0]);
-    if (!file) return res.status(404).send('<!DOCTYPE html><html><head><meta name="robots" content="noindex"><title>404</title></head><body><h1>文章不存在</h1><a href="/">返回首页</a></body></html>');
+    if (!file) return notFoundHandler(req, res);
     if (req.path !== file.url) return res.redirect(301, file.url);
     const post = apiRoutes.withSEO(await apiRoutes.getPost(file.path), req);
     res.setHeader('Cache-Control', 'no-store');
     res.send(renderPage(fs.readFileSync(indexHtmlPath, 'utf8'), { post, seo: post.seo,
       translations: getFrontendTranslations(), lang: i18n.getLang() }));
   } catch (error) {
+    if (error.status === 404) return notFoundHandler(req, res);
     console.error('Article render failed:', error);
     res.status(error.status || 503).send('Service unavailable');
   }
@@ -394,6 +399,12 @@ app.get('/stats', (req, res) => {
 
   res.send(localizedTemplate);
 });
+
+// 仓库 HTML 页面与静态资源（未命中会继续交给 404）。
+app.use(createHtmlRoutes({ gitManager, config }));
+
+// 统一 404：优先使用配置的 pages.notFound，缺省使用内置页面。
+app.use(notFoundHandler);
 
 const PORT = config.port || 3150;
 

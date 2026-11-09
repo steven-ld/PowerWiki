@@ -143,9 +143,14 @@ npm start
   "siteTitle": "我的知识库",
   "siteDescription": "知识库",
   "autoSyncInterval": 180000,
+  "html": {
+    "enabled": true,
+    "sandbox": true
+  },
   "pages": {
     "home": "README.md",
-    "about": "ABOUT.md"
+    "about": "ABOUT.md",
+    "notFound": "404.html"
   }
 }
 ```
@@ -162,6 +167,12 @@ npm start
 | `sortOrder` | 排序方式 (`modified` 或 `name`) | `modified` |
 | `pages.home` | 首页文件 | `""` |
 | `pages.about` | 关于页面文件 | `""` |
+| `pages.notFound` | 自定义 404 页面（`.html` 或 `.md`） | 内置页面 |
+| `html.enabled` | 启用仓库 HTML 页面 | `true` |
+| `html.sandbox` | 将仓库 HTML 放入沙箱源 | `true` |
+| `html.csp` | 覆盖默认的 Content-Security-Policy | `""` |
+
+仓库中的 HTML 页面可以省略 `.html` 后缀访问：`/docs/page` 对应 `docs/page.html`，`/docs/` 对应 `docs/index.html`。引用 `/static/...` 时会优先使用页面同级目录下的 `static/...`，找不到再回退到仓库顶层的 `static/...`。仓库 HTML 默认运行在沙箱源中，无法读取 Wiki 的 Cookie、`localStorage` 或同源接口；只有完全可信的内容才应设置 `html.sandbox: false`。`pages.notFound` 为空或文件不存在时使用内置 404 页面。
 
 ## 🌍 环境变量
 

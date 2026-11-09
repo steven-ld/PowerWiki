@@ -16,6 +16,9 @@ const { t } = require('../config/i18n');
 const { createHash, randomBytes } = require('crypto');
 const statsStore = require('../utils/statsStore');
 
+// 首页访问在统计和访问日志中使用固定路径，避免被算作某篇文章。
+const HOME_VIEW_PATH = '/';
+
 /**
  * 构建目录树结构
  */
@@ -205,18 +208,10 @@ function saveAccessLog(accessLogFilePath, log) {
 }
 
 /**
- * 记录文章访问
+ * 写入一条详细访问日志
  */
-function recordPostView(statsFilePath, filePath, req) {
+function writeAccessRecord(statsFilePath, filePath, req) {
   const accessLogFilePath = statsFilePath.replace('.stats.json', '.access-log.json');
-
-  const stats = readStats(statsFilePath);
-  stats.totalViews = (stats.totalViews || 0) + 1;
-  stats.postViews = stats.postViews || {};
-  stats.postViews[filePath] = (stats.postViews[filePath] || 0) + 1;
-  saveStats(statsFilePath, stats);
-
-  // 记录详细访问日志
   const accessLog = readAccessLog(accessLogFilePath);
   const ip = getClientIP(req);
   const userAgent = req.headers['user-agent'] || 'unknown';
@@ -234,8 +229,37 @@ function recordPostView(statsFilePath, filePath, req) {
   });
 
   saveAccessLog(accessLogFilePath, accessLog);
+}
+
+/**
+ * 记录文章访问
+ */
+function recordPostView(statsFilePath, filePath, req) {
+  const stats = readStats(statsFilePath);
+  stats.totalViews = (stats.totalViews || 0) + 1;
+  stats.postViews = stats.postViews || {};
+  stats.postViews[filePath] = (stats.postViews[filePath] || 0) + 1;
+  saveStats(statsFilePath, stats);
+
+  writeAccessRecord(statsFilePath, filePath, req);
+  cacheManager.delete('stats');
 
   return stats.postViews[filePath];
+}
+
+/**
+ * 记录首页访问。首页不属于任何文章，单独累计到 homeViews。
+ */
+function recordHomeView(statsFilePath, req) {
+  const stats = readStats(statsFilePath);
+  stats.totalViews = (stats.totalViews || 0) + 1;
+  stats.homeViews = (stats.homeViews || 0) + 1;
+  saveStats(statsFilePath, stats);
+
+  writeAccessRecord(statsFilePath, HOME_VIEW_PATH, req);
+  cacheManager.delete('stats');
+
+  return stats.homeViews;
 }
 
 /**
@@ -256,6 +280,7 @@ function recordShortlinkView(statsFilePath, code, filePath) {
   stats.shortlinkViews[code] = entry;
 
   saveStats(statsFilePath, stats);
+  cacheManager.delete('stats');
 
   return entry.count;
 }
@@ -424,6 +449,15 @@ function createApiRoutes(options) {
     }
   });
 
+  // API: 记录首页访问（由前端在首页实际展示后调用，避免把爬虫 HTML 请求计入）。
+  router.post('/home/view', (req, res) => {
+    try {
+      res.json({ homeViews: recordHomeView(statsFilePath, req) });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // API: 获取指定文章的短链信息（供前端「分享」按钮使用）
   router.get('/shortlink/*', async (req, res) => {
     try {
@@ -560,23 +594,26 @@ function createApiRoutes(options) {
           };
         }
         ipStats[record.ip].count++;
-        ipStats[record.ip].posts.add(record.filePath);
+        // 首页不是文章：计入总访问量、日志和趋势，但不进入文章访问排行榜。
+        const isHomeView = record.filePath === HOME_VIEW_PATH;
+        if (!isHomeView) {
+          ipStats[record.ip].posts.add(record.filePath);
+          if (!postStats[record.filePath]) {
+            postStats[record.filePath] = {
+              filePath: record.filePath,
+              count: 0,
+              uniqueIPs: new Set()
+            };
+          }
+          postStats[record.filePath].count++;
+          postStats[record.filePath].uniqueIPs.add(record.ip);
+        }
         if (record.timestamp < ipStats[record.ip].firstVisit) {
           ipStats[record.ip].firstVisit = record.timestamp;
         }
         if (record.timestamp > ipStats[record.ip].lastVisit) {
           ipStats[record.ip].lastVisit = record.timestamp;
         }
-
-        if (!postStats[record.filePath]) {
-          postStats[record.filePath] = {
-            filePath: record.filePath,
-            count: 0,
-            uniqueIPs: new Set()
-          };
-        }
-        postStats[record.filePath].count++;
-        postStats[record.filePath].uniqueIPs.add(record.ip);
 
         const date = record.timestamp.split('T')[0];
         dateStats[date] = (dateStats[date] || 0) + 1;
@@ -701,6 +738,7 @@ function createApiRoutes(options) {
       res.json({
         summary: {
           totalViews: stats.totalViews,
+          homeViews: stats.homeViews || 0,
           totalPosts: Object.keys(stats.postViews).length,
           totalIPs: ipStatsArray.length,
           totalRecords: accessLog.length,
@@ -773,4 +811,4 @@ function createApiRoutes(options) {
   return router;
 }
 
-module.exports = { createApiRoutes, recordPostView, recordShortlinkView, readStats, saveStats };
+module.exports = { createApiRoutes, recordPostView, recordHomeView, recordShortlinkView, readStats, saveStats, HOME_VIEW_PATH };
