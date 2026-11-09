@@ -139,6 +139,8 @@
     "copyDoc": "Copy",
     "showRaw": "Raw",
     "showRendered": "Render",
+    "openFullPage": "Full screen",
+    "openFullPageTitle": "Open the full page in a new tab",
     "share": "Share",
     "shareCopied": "Short link copied",
     "shareFailed": "Failed to generate short link",

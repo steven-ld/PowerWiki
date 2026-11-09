@@ -186,7 +186,7 @@ HTML 文件和 Markdown 文件一样作为文章处理：出现在侧边栏，�
 
 声明后，正文不再清洗，而是变成一个受控的 `iframe`：允许脚本、表单、弹窗、下载和用户触发的顶层跳转，但不带 `allow-same-origin`。页面运行在不透明源中，无法读取 Wiki 的 Cookie、localStorage、IndexedDB，也不能调用同源接口。`content="full"` 是兼容别名。需要持久化状态时请使用内存变量，或对 Web Storage 访问做 `try / catch`。
 
-原始页面同时通过 `/full/<仓库路径>` 提供，返回未清洗的 HTML，并附带 `Content-Security-Policy: sandbox ...` 与 `X-Content-Type-Options: nosniff` 响应头，可在新窗口独立打开。该路由只提供 HTML 和静态资源（图片、CSS/JS、字体、音视频、WASM），并在解析前校验路径：拒绝目录穿越、隐藏路径段、符号链接和超过 50 MB 的文件。`/full/docs/` 这类目录地址与 `/full/docs/guide` 这类省略后缀的地址会分别解析到 `index.html` 与 `guide.html`，完整页面里的相对链接可以照常工作。未声明该 meta 的 HTML 文件仍走白名单清洗。
+原始页面同时通过 `/full/<仓库路径>` 提供，返回未清洗的 HTML，并附带 `Content-Security-Policy: sandbox ...` 与 `X-Content-Type-Options: nosniff` 响应头，可在新窗口独立打开。该路由只提供 HTML 和静态资源（图片、CSS/JS、字体、音视频、WASM），并在解析前校验路径：拒绝目录穿越、隐藏路径段、符号链接和超过 50 MB 的文件。`/full/docs/` 这类目录地址与 `/full/docs/guide` 这类省略后缀的地址会分别解析到 `index.html` 与 `guide.html`，完整页面里的相对链接可以照常工作。未声明该 meta 的 HTML 文件仍走白名单清洗。所有 HTML 文章的工具条默认提供一个主色「全屏」按钮，点击即在新窗口打开这个地址；嵌入页面下方的文字链接保留作为无 JavaScript 时的兜底。
 
 沙箱页面读不到 Wiki 的 `data-theme` 和 Web Storage，因此文章外壳会在 iframe 加载完成后，以及站点主题变化时，向沙箱发送一条界面偏好消息：
 
