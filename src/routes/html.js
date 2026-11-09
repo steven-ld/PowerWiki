@@ -1,12 +1,11 @@
 /**
  * HTML Routes
  *
- * 让 Wiki 仓库中的 HTML 页面可以作为独立页面访问：
- * - `/docs/page` 与 `/docs/page.html` 均指向仓库中的 `docs/page.html`
- * - 支持页面同级 `static/` 与仓库顶层 `static/`
- * - 请求 `/static/*` 时优先使用引用页面同级目录下的 `static/*`
- *
- * 同时集中处理这些用户可控 HTML/静态文件的路径穿越防护与安全响应头。
+ * 仓库 HTML 页面和 Markdown 一样作为文章收录与渲染。这里负责：
+ * - 把 `/docs/page`、`/docs/page.html`、`/docs/` 这类地址统一跳到文章地址
+ *   `/post/docs/page.html`，由文章渲染链路输出同一种阅读界面
+ * - 提供页面引用的 `static/` 静态资源（同级 `static/` 与仓库顶层 `static/`）
+ * - 集中处理这些用户可控文件的路径穿越防护与安全响应头
  *
  * @module routes/html
  */
@@ -23,6 +22,7 @@ const {
   resolveRepoFile,
   safeDecodePath
 } = require('../utils/safePath');
+const { encodePath } = require('../utils/articleAddress');
 
 // 这些前缀属于应用自身路由，仓库文件不能覆盖。
 const RESERVED_TOP_LEVEL = new Set(['api', 'stats', 'post', 'article', 's', 'pdfjs']);
@@ -39,15 +39,17 @@ function htmlSettings(config) {
   const options = (config && config.html) || {};
   return {
     enabled: options.enabled !== false,
+    // 默认清洗正文；html.sanitize 显式关闭（或旧的 sandbox:false）才按可信内容原样输出。
+    sanitize: options.sanitize !== undefined ? options.sanitize !== false : options.sandbox !== false,
     sandbox: options.sandbox !== false,
     csp: typeof options.csp === 'string' && options.csp.trim() ? options.csp.trim() : null
   };
 }
 
 /**
- * 默认 CSP：允许页面加载常见静态资源，但默认把仓库 HTML 放进沙箱，
+ * 配置的 404 页面仍作为独立文档输出，使用这里的默认 CSP 并放进沙箱，
  * 使其无法读取 Wiki 的 Cookie、localStorage 或同源接口。
- * 页面确实需要同源能力时，可在 config.json 设置 "html": { "sandbox": false }。
+ * 该页面确实需要同源能力时，可在 config.json 设置 "html": { "sandbox": false }。
  */
 function buildCsp(sandbox) {
   const resources = [
@@ -220,20 +222,10 @@ function createHtmlRoutes({ gitManager, config }) {
       const file = await firstExisting(gitManager.repoPath, htmlCandidates(req.path), HTML_EXTENSIONS);
       if (!file) return next();
 
-      // 目录首页统一跳到带斜杠地址，浏览器才会把相对 `static/` 解析到该目录。
-      const requestedExtension = extensionOf(req.path);
-      const explicitHtml = requestedExtension === '.html' || requestedExtension === '.htm';
-      const segments = file.relative.split('/');
-      const isDirectoryIndex = segments.length > 1 && /^index\.html?$/i.test(segments[segments.length - 1]);
-      if (!explicitHtml && !req.path.endsWith('/') && isDirectoryIndex) {
-        // 只使用已校验的路径，并折叠开头的 //，避免被解释成协议相对地址。
-        const [, query] = req.originalUrl.split('?');
-        const pathname = req.path.replace(/^\/+/, '/').replace(/\/+$/, '');
-        return res.redirect(301, `${pathname}/${query ? `?${query}` : ''}`);
-      }
-
-      applyDocumentHeaders(res, settings);
-      await sendFile(res, file, {});
+      // HTML 页面不再独立输出：统一跳到文章地址，与 Markdown 共用文章渲染链路。
+      const queryIndex = req.originalUrl.indexOf('?');
+      const query = queryIndex === -1 ? '' : req.originalUrl.slice(queryIndex);
+      return res.redirect(301, `/post/${encodePath(file.relative)}${query}`);
     } catch (error) {
       console.error(`❌ ${t('static.serveHtmlFailed')}:`, error);
       if (!res.headersSent) next(error);

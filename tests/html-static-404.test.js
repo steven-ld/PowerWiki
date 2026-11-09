@@ -11,6 +11,7 @@ const {
   resolveRequestFile,
   safeDecodePath
 } = require('../src/utils/safePath');
+const { parseHtmlArticle } = require('../src/utils/htmlArticle');
 
 async function until(check, timeout = 10000) {
   const deadline = Date.now() + timeout;
@@ -56,6 +57,30 @@ test('safePath rejects traversal, hidden files, symlinks and wrong extensions', 
   }
 });
 
+test('HTML articles are sanitized and their assets rewritten', () => {
+  const source = '<!DOCTYPE html><html><head><title>Doc</title>' +
+    '<meta name="description" content="Desc">' +
+    '<style>body{display:none}</style></head>' +
+    '<body><h1>H</h1><script>alert(1)</script>' +
+    '<img src="img/a.png" onerror="alert(1)">' +
+    '<img src="data:text/html;base64,AAA">' +
+    '<a href="javascript:alert(1)">x</a><a href="other.html">o</a><a href="../up.html">u</a>' +
+    '<a href="#part">p</a><div style="color:red" onclick="alert(1)">d</div></body></html>';
+
+  const article = parseHtmlArticle(source, 'docs/page.html');
+  assert.equal(article.title, 'Doc');
+  assert.equal(article.description, 'Desc');
+  assert.doesNotMatch(article.html, /<script|alert\(1\)|onerror|javascript:|style=/i);
+  assert.match(article.html, /src="\/api\/image\/docs\/img\/a\.png"/);
+  assert.match(article.html, /href="\/post\/docs\/other\.html"/);
+  assert.match(article.html, /href="\/post\/up\.html"/);
+  assert.match(article.html, /href="#part"/);
+  assert.match(article.raw, /alert\(1\)/);
+
+  // 没有 <title> 时用正文第一个 h1 作为标题。
+  assert.equal(parseHtmlArticle('<body><h1>Only</h1></body>', 'docs/a.htm').title, 'Only');
+});
+
 test('HTML pages, static priority, security headers, 404 and home stats', { timeout: 30000 }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'powerwiki-html-'));
   const repo = path.join(root, 'source');
@@ -64,7 +89,13 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
 
   await fs.writeFile(path.join(repo, 'README.md'), '# Home');
   await fs.writeFile(path.join(repo, 'docs', 'guide.html'),
-    '<!DOCTYPE html><html><head><link rel="stylesheet" href="/static/site.css"></head><body><h1>Guide</h1></body></html>');
+    '<!DOCTYPE html><html><head><title>Guide Title</title>' +
+    '<meta name="description" content="Guide description">' +
+    '<style>body{display:none}</style></head>' +
+    '<body><h1>Guide</h1><script>window.__XSS__=1</script>' +
+    '<img src="local.png" onerror="window.__XSS__=2">' +
+    '<a href="release-1.0.html">release</a>' +
+    '<div style="color:red" onclick="window.__XSS__=3">styled</div></body></html>');
   await fs.writeFile(path.join(repo, 'docs', 'index.html'), '<!DOCTYPE html><html><body><h1>Docs Index</h1></body></html>');
   await fs.writeFile(path.join(repo, 'docs', 'release-1.0.html'), '<!DOCTYPE html><html><body><h1>Release</h1></body></html>');
   await fs.writeFile(path.join(repo, 'docs', '100%.html'), '<!DOCTYPE html><html><body><h1>Percent</h1></body></html>');
@@ -116,32 +147,69 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
   try {
     await until(async () => {
       const response = await request('/api/posts');
-      return response.ok && (await response.json()).flat.length === 1;
+      return response.ok && (await response.json()).flat.some(file => file.path === 'docs/guide.html');
     });
 
-    // 省略 .html、显式 .html 与目录 index 都返回同一个页面。
-    for (const url of ['/docs/guide', '/docs/guide.html', '/docs/']) {
-      const response = await request(url);
-      assert.equal(response.status, 200, url);
-      assert.match(response.headers.get('content-type'), /text\/html/, url);
+    // HTML 页面不再独立输出：省略后缀、显式后缀都跳到统一的文章地址。
+    const articleUrl = '/post/docs/guide.html';
+    for (const url of ['/docs/guide', '/docs/guide.html']) {
+      const response = await request(url, { redirect: 'manual' });
+      assert.equal(response.status, 301, url);
+      assert.equal(response.headers.get('location'), articleUrl, url);
     }
-    // 目录首页必须跳到带斜杠地址，浏览器才能正确解析页面内的相对资源。
-    const directoryRedirect = await request('/docs', { redirect: 'manual' });
+    const directoryRedirect = await request('/docs/', { redirect: 'manual' });
     assert.equal(directoryRedirect.status, 301);
-    assert.equal(directoryRedirect.headers.get('location'), '/docs/');
-    const guide = await (await request('/docs/guide')).text();
-    assert.match(guide, /<h1>Guide<\/h1>/);
-    // 页面名本身带点或百分号时仍可省略 .html。
-    assert.match(await (await request('/docs/release-1.0')).text(), /<h1>Release<\/h1>/);
-    assert.match(await (await request('/docs/100%25.html')).text(), /<h1>Percent<\/h1>/);
-    const headers = (await request('/docs/guide')).headers;
-    assert.match(headers.get('content-security-policy'), /sandbox/);
-    assert.equal(headers.get('x-content-type-options'), 'nosniff');
-    assert.equal(headers.get('x-frame-options'), 'SAMEORIGIN');
-    assert.equal(headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
+    assert.equal(directoryRedirect.headers.get('location'), '/post/docs/index.html');
+    // 查询串随跳转保留。
+    const queryRedirect = await request('/docs/guide?x=1', { redirect: 'manual' });
+    assert.equal(queryRedirect.headers.get('location'), '/post/docs/guide.html?x=1');
 
-    // 页面使用相对 static/... 时浏览器直接请求 /docs/static/...，无需 Referer。
-    // 根绝对 /static/... 的同级优先只在有 Referer 时生效（沙箱页面不会发送 Referer）。
+    // 文章地址走同一条 SSR 链路，和 Markdown 文章共用阅读界面。
+    const article = await request(articleUrl);
+    assert.equal(article.status, 200);
+    assert.match(article.headers.get('content-type'), /text\/html/);
+    const articleBody = await article.text();
+    assert.match(articleBody, /<title[^>]*>Guide Title - HTML Test<\/title>/);
+    // 正文由模板直接放进 #postBody，和 Markdown 文章共用同一块阅读区域。
+    const rendered = articleBody.match(/<div id="postBody"[^>]*>([\s\S]*?)<\/div>/);
+    assert.ok(rendered, 'postBody rendered');
+    const body = rendered[1];
+    assert.match(body, /<h1>Guide<\/h1>/);
+    // 脚本、事件处理器与页面自带样式不会进入文章正文。
+    assert.doesNotMatch(body, /<script|onerror=|style=|__XSS__/);
+    // 相对资源与页面链接被改写为 Wiki 地址。
+    assert.match(body, /src="\/api\/image\/docs\/local\.png"/);
+    assert.match(body, /alt="local"/);
+    assert.match(body, /href="\/post\/docs\/release-1\.0\.html"/);
+
+    // API 返回同样的文章数据，原始内容仍可用于「原始」视图。
+    const articleData = await (await request('/api/post/docs/guide.html')).json();
+    assert.equal(articleData.type, 'html');
+    assert.equal(articleData.title, 'Guide Title');
+    assert.match(articleData.raw, /window\.__XSS__/);
+    assert.doesNotMatch(articleData.html, /window\.__XSS__/);
+
+    // 页面名本身带点或百分号时仍可省略 .html。
+    for (const [url, location] of [
+      ['/docs/release-1.0', '/post/docs/release-1.0.html'],
+      ['/docs/100%25.html', '/post/docs/100%25.html']
+    ]) {
+      const response = await request(url, { redirect: 'manual' });
+      assert.equal(response.status, 301, url);
+      assert.equal(response.headers.get('location'), location, url);
+    }
+    assert.match(await (await request('/post/docs/release-1.0.html')).text(), /<h1>Release<\/h1>/);
+    assert.match(await (await request('/post/docs/100%25.html')).text(), /<h1>Percent<\/h1>/);
+
+    // HTML 页面与 Markdown 一起出现在文章列表，配置的 404 页面不收录。
+    const posts = await (await request('/api/posts')).json();
+    const guideFile = posts.flat.find(file => file.path === 'docs/guide.html');
+    assert.equal(guideFile.type, 'html');
+    assert.equal(guideFile.url, '/post/docs/guide.html');
+    assert.equal(posts.flat.some(file => file.path === '404.html'), false);
+
+    // 页面使用相对 static/... 时正文会被改写为 /docs/static/...，无需 Referer。
+    // 根绝对 /static/... 仍按 Referer 优先取同级 static，兼容旧页面。
     const sameLevel = await (await request('/static/site.css', { headers: { referer: `${origin}/docs/guide` } })).text();
     assert.match(sameLevel, /rgb\(1,2,3\)/);
     const topLevel = await (await request('/static/site.css')).text();
@@ -175,15 +243,17 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     assert.match((await (await request('/api/missing')).json()).error, /Not found/);
 
     // 首页访问单独计数，不进入文章排行。
+    const before = await (await request('/api/stats/detail')).json();
+    assert.equal(before.summary.totalPosts, 1); // 前面通过 /api/post 访问过 HTML 文章
     assert.deepEqual(await (await request('/api/home/view', { method: 'POST' })).json(), { homeViews: 1 });
     assert.deepEqual(await (await request('/api/home/view', { method: 'POST' })).json(), { homeViews: 2 });
     const stats = await (await request('/api/stats/detail')).json();
-    assert.equal(stats.summary.totalViews, 2);
+    assert.equal(stats.summary.totalViews, before.summary.totalViews + 2);
     assert.equal(stats.summary.homeViews, 2);
-    assert.equal(stats.summary.totalPosts, 0);
-    assert.equal(stats.postStats.length, 0);
-    assert.equal(stats.ipStats[0].posts, 0);
-    assert.equal(stats.summary.totalRecords, 2);
+    assert.equal(stats.summary.totalPosts, before.summary.totalPosts);
+    assert.deepEqual(stats.postStats, before.postStats);
+    assert.equal(stats.ipStats[0].posts, before.ipStats[0].posts);
+    assert.equal(stats.summary.totalRecords, before.summary.totalRecords + 2);
 
     // 配置的 404 文件缺失时回退到内置页面。
     await fs.writeFile(configPath, JSON.stringify({ ...config, pages: { home: 'README.md', notFound: 'missing-404.html' } }));

@@ -9,6 +9,8 @@
 
 const express = require('express');
 const { parseMarkdown, parseFrontmatter } = require('../utils/markdownParser');
+const { parseHtmlArticle } = require('../utils/htmlArticle');
+const { htmlSettings } = require('./html');
 const seoHelper = require('../utils/seoHelper');
 const cacheManager = require('../utils/cacheManager');
 const { articleAddress, buildAddressIndex } = require('../utils/articleAddress');
@@ -34,7 +36,7 @@ function buildDirectoryTree(files, config) {
       const isFile = i === parts.length - 1;
 
       if (isFile) {
-        const fileName = part.replace(/\.(md|markdown|pdf)$/i, '');
+        const fileName = part.replace(/\.(md|markdown|pdf|html?|htm)$/i, '');
         const isReadme = /^readme$/i.test(fileName);
         const isAbout = /^about$/i.test(fileName);
 
@@ -49,9 +51,9 @@ function buildDirectoryTree(files, config) {
           type: file.type || (file.name.endsWith('.pdf') ? 'pdf' : 'markdown')
         };
 
-        if (isReadme && fileData.type === 'markdown') {
+        if (isReadme && fileData.type !== 'pdf') {
           current.readme = fileData;
-        } else if (isAbout && fileData.type === 'markdown') {
+        } else if (isAbout && fileData.type !== 'pdf') {
           current.about = fileData;
         } else {
           if (!current.files) {
@@ -317,13 +319,19 @@ function createApiRoutes(options) {
     if (cached && cached.version === version) return cached;
     if (pendingPosts && pendingPosts.version === version) return pendingPosts.promise;
     const promise = (async () => {
-      const files = (await gitManager.getAllMarkdownFiles(config.mdPath)).map(file => ({ ...file }));
+      const settings = htmlSettings(config);
+      const notFoundPage = config.pages.notFound || config.notFound;
+      // HTML 页面与 Markdown 一起作为文章：关闭 html.enabled 时不再收录，
+      // 配置的 404 页面只是错误页，不进目录。
+      const files = (await gitManager.getAllMarkdownFiles(config.mdPath))
+        .map(file => ({ ...file }))
+        .filter(file => file.type !== 'html' || (settings.enabled && file.path !== notFoundPage));
       // Explicit home/about pages remain reachable even outside mdPath.
       for (const pagePath of new Set([config.pages.home, config.pages.about].filter(Boolean))) {
         if (files.some(file => file.path === pagePath)) continue;
         try {
           const file = await gitManager.getFileInfo(pagePath);
-          if (file) files.push(file);
+          if (file && (file.type !== 'html' || settings.enabled)) files.push(file);
         }
         catch (error) { console.warn(`Page unavailable: ${pagePath}: ${error.message}`); }
       }
@@ -331,7 +339,8 @@ function createApiRoutes(options) {
       // Bound concurrent disk reads without rendering every article at startup.
       for (let offset = 0; offset < files.length; offset += 16) {
         await Promise.all(files.slice(offset, offset + 16).map(async file => {
-          const frontmatter = file.type === 'pdf' || /\.pdf$/i.test(file.path) ? {} :
+          // HTML 与 PDF 没有 frontmatter；slug/aliases 仅由 Markdown 提供。
+          const frontmatter = file.type !== 'markdown' || /\.pdf$/i.test(file.path) ? {} :
             parseFrontmatter(await gitManager.readMarkdownFile(file.path)).frontmatter;
           Object.assign(file, articleAddress(file, frontmatter));
         }));
@@ -374,14 +383,24 @@ function createApiRoutes(options) {
     const cached = cacheManager.get('post', filePath);
     if (cached && cached.version === posts.version) return cached;
     const fileInfo = file;
-    const parsed = file.type === 'pdf' || /\.pdf$/i.test(filePath) ?
-      { html: '', title: file.name.replace(/\.pdf$/i, ''), description: 'PDF 文档', frontmatter: {} } :
-      parseMarkdown(await gitManager.readMarkdownFile(filePath), filePath);
-    const title = parsed.title === '无标题' ? file.name.replace(/\.(md|markdown)$/i, '') : parsed.title;
+    const isPdf = file.type === 'pdf' || /\.pdf$/i.test(filePath);
+    const isHtml = !isPdf && (file.type === 'html' || /\.(html?|htm)$/i.test(filePath));
+    let parsed;
+    if (isPdf) {
+      parsed = { html: '', title: file.name.replace(/\.pdf$/i, ''), description: 'PDF 文档', frontmatter: {} };
+    } else if (isHtml) {
+      // HTML 页面按文章正文清洗后再交给同一条渲染链路。
+      parsed = parseHtmlArticle(await gitManager.readHtmlFile(filePath), filePath,
+        { sanitize: htmlSettings(config).sanitize });
+    } else {
+      parsed = parseMarkdown(await gitManager.readMarkdownFile(filePath), filePath);
+    }
+    const title = parsed.title === '无标题' ?
+      file.name.replace(/\.(md|markdown|html?|htm)$/i, '') : parsed.title;
     const html = seoHelper.optimizeImageTags(parsed.html, title);
     const result = { ...parsed, title, html, description: parsed.description || seoHelper.generateDescription(html, title),
       keywords: parsed.keywords || seoHelper.extractKeywords(html, title, filePath),
-      version: posts.version, type: /\.pdf$/i.test(filePath) ? 'pdf' : 'markdown', fileInfo, path: filePath, url: file.url };
+      version: posts.version, type: isPdf ? 'pdf' : isHtml ? 'html' : 'markdown', fileInfo, path: filePath, url: file.url };
     if (posts.version !== getVersion()) return getPost(filePath);
     cacheManager.set('post', filePath, result, Infinity);
     return result;

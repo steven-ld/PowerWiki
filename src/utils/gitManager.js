@@ -13,6 +13,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { t } = require('../config/i18n');
 const {
+  HTML_EXTENSIONS,
   MARKDOWN_EXTENSIONS,
   resolveRepoFile
 } = require('./safePath');
@@ -306,18 +307,20 @@ class GitManager {
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
 
-        // 跳过 .git 目录、images 文件夹、隐藏文件与软链接。
+        // 跳过 .git 目录、images/static 资源目录、隐藏文件与软链接。
         // 软链接可能指向仓库外，读取时会被 safePath 拒绝，这里提前排除。
         if (entry.name === '.git' || entry.name === 'images') continue;
+        if (entry.isDirectory() && entry.name === 'static') continue;
         if (entry.name.startsWith('.') || entry.isSymbolicLink()) continue;
 
         if (entry.isDirectory()) {
           await scanDirectory(fullPath);
-        } else if (entry.name.endsWith('.md') || entry.name.endsWith('.markdown') || entry.name.endsWith('.pdf')) {
+        } else if (/\.(md|markdown|pdf|html?|htm)$/i.test(entry.name)) {
           const relativePath = path.relative(this.repoPath, fullPath).replace(/\\/g, '/');
           const stats = await fs.stat(fullPath);
 
           const info = dates.get(relativePath) || {};
+          const extension = path.extname(entry.name).toLowerCase();
           const file = {
             path: relativePath,
             fullPath: fullPath,
@@ -325,7 +328,8 @@ class GitManager {
             created: info.created || stats.birthtime,
             modified: info.modified || stats.mtime,
             size: stats.size,
-            type: entry.name.endsWith('.pdf') ? 'pdf' : 'markdown'
+            type: extension === '.pdf' ? 'pdf'
+              : HTML_EXTENSIONS.has(extension) ? 'html' : 'markdown'
           };
           files.push(file);
           if (renamed.has(relativePath) || merged.has(relativePath)) historyFiles.push(file);
@@ -361,6 +365,15 @@ class GitManager {
   async readMarkdownFile(filePath) {
     const file = await resolveRepoFile(this.repoPath, filePath, {
       extensions: MARKDOWN_EXTENSIONS,
+      decoded: true
+    });
+    if (file) return await fs.readFile(file.absolute, 'utf-8');
+    throw new Error(`文件不存在: ${filePath}`);
+  }
+
+  async readHtmlFile(filePath) {
+    const file = await resolveRepoFile(this.repoPath, filePath, {
+      extensions: HTML_EXTENSIONS,
       decoded: true
     });
     if (file) return await fs.readFile(file.absolute, 'utf-8');
@@ -433,12 +446,14 @@ class GitManager {
         fs.stat(file.absolute)
       ]);
 
+      const extension = path.extname(file.relative).toLowerCase();
       return {
         path: file.relative,
         name: path.basename(file.relative),
         created: gitCreated || stats.birthtime,
         modified: gitModified || stats.mtime,
-        size: file.size
+        size: file.size,
+        type: extension === '.pdf' ? 'pdf' : HTML_EXTENSIONS.has(extension) ? 'html' : 'markdown'
       };
     }
     return null;

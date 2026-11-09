@@ -145,7 +145,7 @@ Edit `config.json`:
   "autoSyncInterval": 180000,
   "html": {
     "enabled": true,
-    "sandbox": true
+    "sanitize": true
   },
   "pages": {
     "home": "README.md",
@@ -168,11 +168,13 @@ Edit `config.json`:
 | `pages.home` | Home page file | `""` |
 | `pages.about` | About page file | `""` |
 | `pages.notFound` | Custom 404 page (`.html` or `.md`) | built-in page |
-| `html.enabled` | Serve HTML pages from the repository | `true` |
-| `html.sandbox` | Run repository HTML in a sandboxed origin | `true` |
-| `html.csp` | Override the default Content-Security-Policy | `""` |
+| `html.enabled` | Include repository HTML files as articles | `true` |
+| `html.sanitize` | Sanitize the article body with an allowlist | `true` |
+| `html.csp` | Override the Content-Security-Policy of the configured 404 page | `""` |
 
-Repository HTML pages can be opened without the `.html` suffix: `/docs/page` serves `docs/page.html`, and `/docs/` serves `docs/index.html` (a bare `/docs` redirects to `/docs/` so relative URLs resolve correctly). Reference assets with a **relative** path such as `static/site.css`: the browser resolves it to `/docs/static/site.css`, which is served directly and is the recommended way to get same-level assets. A root-absolute `/static/site.css` is served from the page's sibling `static/` only when the request carries a `Referer`; sandboxed pages do not send one, so it falls back to the repository-level `static/`. Repository HTML runs in a sandboxed origin by default, so it cannot read the wiki's cookies, `localStorage`, or same-origin APIs; set `html.sandbox` to `false` only for fully trusted content. Keep page assets in a `static/` directory — other same-directory assets also depend on `Referer`. If `pages.notFound` is empty or missing, the built-in 404 page is used.
+HTML files behave like Markdown articles: they appear in the sidebar, are served at `/post/docs/page.html`, and use the same reading view (TOC, copy, raw view, share link, SEO tags and view counting). Legacy URLs redirect to that article URL with a 301: `/docs/page` and `/docs/page.html` → `/post/docs/page.html`, `/docs/` → `/post/docs/index.html`. Only the `<body>` is rendered; `<title>`, `<meta name="description">` and `<meta name="keywords">` become the article metadata.
+
+The body is sanitized by default — `<script>`, `<style>`, `<iframe>`, forms, inline event handlers and `style` attributes are removed, and `javascript:` URLs are dropped. Relative URLs are rewritten server-side: images go to `/api/image/...`, links to other HTML/Markdown/PDF files go to `/post/...`, and other assets (such as `static/site.css`) are resolved from the page's directory, so no `Referer` is required. Set `html.sanitize` to `false` only for fully trusted content (the legacy `html.sandbox: false` still works and maps to the same mode). Directories named `static/` are not treated as article containers. If `pages.notFound` is empty or missing, the built-in 404 page is used.
 
 ## 🌍 Environment Variables
 
@@ -465,6 +467,7 @@ PowerWiki/
 │   ├── routes/              # Route modules
 │   │   ├── api.js           # API routes
 │   │   ├── feeds.js         # RSS/Sitemap routes
+│   │   ├── html.js          # HTML article redirects & repo assets
 │   │   └── static.js        # Static file routes
 │   ├── config/              # Configuration
 │   │   ├── env.js           # Environment variables
@@ -472,6 +475,7 @@ PowerWiki/
 │   └── utils/               # Utility modules
 │       ├── cacheManager.js  # Cache management
 │       ├── gitManager.js    # Git operations
+│       ├── htmlArticle.js   # HTML article sanitizing & URL rewriting
 │       └── markdownParser.js# Markdown parser
 ├── locales/                 # Translation files
 │   ├── zh-CN.json           # Chinese translations

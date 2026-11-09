@@ -234,7 +234,7 @@ function filterPosts(keyword) {
 
   // 搜索时使用扁平列表
   const filtered = postsFlat.filter(post => {
-    const fileName = post.name.replace(/\.(md|markdown|pdf)$/i, '');
+    const fileName = post.name.replace(/\.(md|markdown|pdf|html|htm)$/i, '');
     const searchText = `${fileName} ${post.name} ${post.path}`.toLowerCase();
     return searchText.includes(keyword.toLowerCase());
   });
@@ -257,7 +257,7 @@ function buildDirectoryTree(files) {
       const isFile = i === parts.length - 1;
 
       if (isFile) {
-        const fileName = part.replace(/\.(md|markdown|pdf)$/i, '');
+        const fileName = part.replace(/\.(md|markdown|pdf|html|htm)$/i, '');
         if (!current.files) {
           current.files = [];
         }

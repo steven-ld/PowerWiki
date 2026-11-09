@@ -275,8 +275,10 @@ function optimizeImageTags(html, defaultAlt = '文章图片') {
 
     const hasLoading = /loading\s*=/i.test(attrs);
     const loadingAttr = hasLoading ? '' : ' loading="lazy"';
+    // HTML 清洗器会把 img 输出成自闭合形式，插入属性前去掉结尾的斜杠。
+    const cleanAttrs = attrs.replace(/\s*\/\s*$/, '');
 
-    return `<img${attrs} alt="${alt}"${loadingAttr}>`;
+    return `<img${cleanAttrs} alt="${alt}"${loadingAttr}>`;
   });
 }
 

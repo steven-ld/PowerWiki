@@ -16,7 +16,7 @@
   },
   "html": {
     "enabled": true,
-    "sandbox": true
+    "sanitize": true
   },
   "pages": {
     "home": "README.md",

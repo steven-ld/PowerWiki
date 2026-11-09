@@ -145,7 +145,7 @@ npm start
   "autoSyncInterval": 180000,
   "html": {
     "enabled": true,
-    "sandbox": true
+    "sanitize": true
   },
   "pages": {
     "home": "README.md",
@@ -168,11 +168,13 @@ npm start
 | `pages.home` | 首页文件 | `""` |
 | `pages.about` | 关于页面文件 | `""` |
 | `pages.notFound` | 自定义 404 页面（`.html` 或 `.md`） | 内置页面 |
-| `html.enabled` | 启用仓库 HTML 页面 | `true` |
-| `html.sandbox` | 将仓库 HTML 放入沙箱源 | `true` |
-| `html.csp` | 覆盖默认的 Content-Security-Policy | `""` |
+| `html.enabled` | 将仓库 HTML 文件收录为文章 | `true` |
+| `html.sanitize` | 按白名单清洗文章正文 | `true` |
+| `html.csp` | 覆盖配置的 404 页面使用的 Content-Security-Policy | `""` |
 
-仓库中的 HTML 页面可以省略 `.html` 后缀访问：`/docs/page` 对应 `docs/page.html`，`/docs/` 对应 `docs/index.html`（访问 `/docs` 会 301 到 `/docs/`，保证相对地址解析正确）。页面引用资源请使用**相对路径**（如 `static/site.css`）：浏览器会解析为 `/docs/static/site.css`，由服务器直接返回，这是使用同级资源的推荐方式。根绝对路径 `/static/site.css` 只有在请求带 `Referer` 时才会优先取页面同级的 `static/`；沙箱页面不会发送 `Referer`，因此会回退到仓库顶层的 `static/`。仓库 HTML 默认运行在沙箱源中，无法读取 Wiki 的 Cookie、`localStorage` 或同源接口；只有完全可信的内容才应设置 `html.sandbox: false`。页面资源请统一放在 `static/` 目录，其他同级资源同样依赖 `Referer`。`pages.notFound` 为空或文件不存在时使用内置 404 页面。
+HTML 文件和 Markdown 文件一样作为文章处理：出现在侧边栏，地址为 `/post/docs/page.html`，并共用同一套阅读界面（目录、复制、原始视图、分享短链、SEO 标签和阅读数）。旧地址会 301 到文章地址：`/docs/page`、`/docs/page.html` → `/post/docs/page.html`，`/docs/` → `/post/docs/index.html`。只取 `<body>` 作为正文，`<title>`、`<meta name="description">`、`<meta name="keywords">` 作为文章元信息。
+
+正文默认按白名单清洗：移除 `<script>`、`<style>`、`<iframe>`、表单、内联事件处理器和 `style` 属性，丢弃 `javascript:` 链接。相对地址在服务端改写：图片走 `/api/image/...`，指向其他 HTML/Markdown/PDF 的链接走 `/post/...`，其他资源（如 `static/site.css`）按页面所在目录解析，不再依赖 `Referer`。只有完全可信的内容才应设置 `html.sanitize: false`（旧的 `html.sandbox: false` 仍然兼容，等价于可信模式）。名为 `static` 的目录不会被当作文章目录扫描。`pages.notFound` 为空或文件不存在时使用内置 404 页面。
 
 ## 🌍 环境变量
 
@@ -465,6 +467,7 @@ PowerWiki/
 │   ├── routes/              # 路由模块
 │   │   ├── api.js           # API 路由
 │   │   ├── feeds.js         # RSS/Sitemap 路由
+│   │   ├── html.js          # HTML 文章跳转与仓库资源
 │   │   └── static.js        # 静态文件路由
 │   ├── config/              # 配置模块
 │   │   ├── env.js           # 环境变量
@@ -472,6 +475,7 @@ PowerWiki/
 │   └── utils/               # 工具模块
 │       ├── cacheManager.js  # 缓存管理
 │       ├── gitManager.js    # Git 操作
+│       ├── htmlArticle.js   # HTML 文章清洗与地址改写
 │       └── markdownParser.js# Markdown 解析
 ├── locales/                 # 翻译文件
 │   ├── zh-CN.json           # 中文翻译
