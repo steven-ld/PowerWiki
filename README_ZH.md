@@ -188,6 +188,14 @@ HTML 文件和 Markdown 文件一样作为文章处理：出现在侧边栏，�
 
 原始页面同时通过 `/full/<仓库路径>` 提供，返回未清洗的 HTML，并附带 `Content-Security-Policy: sandbox ...` 与 `X-Content-Type-Options: nosniff` 响应头，可在新窗口独立打开。该路由只提供 HTML 和静态资源（图片、CSS/JS、字体、音视频、WASM），并在解析前校验路径：拒绝目录穿越、隐藏路径段、符号链接和超过 50 MB 的文件。`/full/docs/` 这类目录地址与 `/full/docs/guide` 这类省略后缀的地址会分别解析到 `index.html` 与 `guide.html`，完整页面里的相对链接可以照常工作。未声明该 meta 的 HTML 文件仍走白名单清洗。
 
+沙箱页面读不到 Wiki 的 `data-theme` 和 Web Storage，因此文章外壳会在 iframe 加载完成后，以及站点主题变化时，向沙箱发送一条界面偏好消息：
+
+```js
+{ type: 'powerwiki:context', version: 1, theme: 'dark', lang: 'zh-CN' }
+```
+
+页面如果希望在首屏绘制前完成对齐，可以先发送 `parent.postMessage({ type: 'powerwiki:request-context' }, '*')` 索取一次。父页面只回应自己渲染的沙箱 iframe，消息里不含 Cookie、统计数据或仓库内容。直接打开 `/full/` 页面时没有父页面，请回退到 `prefers-color-scheme`。
+
 ## 🌍 环境变量
 
 PowerWiki 支持环境变量进行灵活部署：
