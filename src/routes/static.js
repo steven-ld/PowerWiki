@@ -60,7 +60,9 @@ function createStaticRoutes(options) {
       res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
       if (file.extension === '.svg') res.setHeader('Content-Security-Policy', SVG_CSP);
 
-      res.sendFile(file.absolute, { dotfiles: 'deny' });
+      // 路径已由 resolveRepoFile 校验（拒绝隐藏路径并确认在仓库内）；
+      // 缓存目录本身可能带点（如 .git-cache），不能用 dotfiles:'deny'。
+      res.sendFile(file.absolute, { dotfiles: 'allow' });
     } catch (error) {
       console.error(`❌ ${t('static.getImageFailed')}:`, error);
       res.status(404).send(t('static.imageNotFound'));
@@ -88,7 +90,9 @@ function createStaticRoutes(options) {
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
 
-      res.sendFile(file.absolute, { dotfiles: 'deny' });
+      // 路径已由 resolveRepoFile 校验（拒绝隐藏路径并确认在仓库内）；
+      // 缓存目录本身可能带点（如 .git-cache），不能用 dotfiles:'deny'。
+      res.sendFile(file.absolute, { dotfiles: 'allow' });
     } catch (error) {
       console.error(`❌ ${t('static.getPdfFailed')}:`, error);
       res.status(404).json({ error: t('static.pdfNotFound') });

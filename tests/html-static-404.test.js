@@ -148,7 +148,8 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
 
   const child = spawn(process.execPath, ['src/index.js'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, CONFIG_PATH: configPath, DATA_DIR: root, GIT_CACHE_DIR: path.join(root, 'cache') },
+    // 缓存目录名带点，回归覆盖 sendFile 对 dotfiles 的误判（默认 .git-cache）。
+    env: { ...process.env, CONFIG_PATH: configPath, DATA_DIR: root, GIT_CACHE_DIR: path.join(root, '.cache') },
     stdio: 'pipe'
   });
   let output = '';

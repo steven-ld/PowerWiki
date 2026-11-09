@@ -83,7 +83,9 @@ function sendFile(res, file, headers, status = 200) {
     res.setHeader(name, value);
   }
   return new Promise((resolve, reject) => {
-    res.sendFile(file.absolute, { dotfiles: 'deny' }, error => {
+    // 路径已经由 resolveRepoFile 校验；缓存目录名可能带点（如 .git-cache），
+    // dotfiles:'deny' 会把所有仓库文件误判成隐藏文件并返回 403。
+    res.sendFile(file.absolute, { dotfiles: 'allow' }, error => {
       if (error) reject(error);
       else resolve();
     });
