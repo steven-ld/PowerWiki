@@ -13,6 +13,7 @@
 
 const path = require('path');
 const sanitizeHtml = require('sanitize-html');
+const { t } = require('../config/i18n');
 const { encodePath } = require('./articleAddress');
 const {
   HTML_EXTENSIONS,
@@ -51,6 +52,13 @@ const ALLOWED_ATTRIBUTES = {
 const CONTENT_EXTENSIONS = new Set([...HTML_EXTENSIONS, ...MARKDOWN_EXTENSIONS, '.pdf']);
 const SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 
+// 沙箱模式由页面自己的 <meta> 显式开启；默认仍按文章正文清洗。
+const RENDER_META = 'powerwiki-render';
+const SANDBOX_MODE = 'sandbox';
+// 不给 allow-same-origin：脚本、样式和 Canvas 都能用，但页面处于不透明源，
+// 读不到 Wiki 的 Cookie、localStorage，也不能调用同源接口。
+const SANDBOX_IFRAME_ATTRS = 'allow-scripts allow-forms allow-popups allow-modals allow-downloads allow-top-navigation-by-user-activation';
+
 function decodeEntities(value) {
   return String(value || '')
     .replace(/&nbsp;/g, ' ')
@@ -77,6 +85,48 @@ function metaContent(source, name) {
   if (!tag) return '';
   const content = tag[0].match(/\bcontent\s*=\s*(["'])([\s\S]*?)\1/i);
   return content ? decodeEntities(content[2]).trim() : '';
+}
+
+function tagAttribute(tag, name) {
+  const match = String(tag || '').match(new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, 'i'));
+  return match ? decodeEntities(match[2]).trim() : '';
+}
+
+/**
+ * 页面是否要求以沙箱完整页面的方式呈现。
+ * 支持 <meta name="powerwiki-render" content="sandbox">（content="full" 视作同义）。
+ */
+function htmlRenderMode(source) {
+  const tags = String(source || '').match(/<meta\b[^>]*>/gi) || [];
+  for (const tag of tags) {
+    if (tagAttribute(tag, 'name').toLowerCase() !== RENDER_META) continue;
+    const mode = tagAttribute(tag, 'content').toLowerCase();
+    if (mode === SANDBOX_MODE || mode === 'full') return SANDBOX_MODE;
+  }
+  return 'article';
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * 沙箱模式正文：把完整页面放进 iframe，由 /full/<仓库路径> 原样输出。
+ * 文章外壳仍然保留，目录、阅读数、分享和 SEO 元信息继续工作。
+ */
+function sandboxArticleHtml(filePath, title) {
+  const url = `/full/${encodePath(String(filePath || '').replace(/\\/g, '/'))}`;
+  return '<div class="html-sandbox">' +
+    `<iframe class="html-sandbox-frame" src="${url}" title="${escapeHtml(title)}" ` +
+    `loading="lazy" sandbox="${SANDBOX_IFRAME_ATTRS}"></iframe>` +
+    `<p class="html-sandbox-open"><a href="${url}" target="_blank" rel="noopener noreferrer">` +
+    `${escapeHtml(t('html.openFullPage'))}</a></p>` +
+    '</div>';
 }
 
 /**
@@ -224,9 +274,12 @@ function parseHtmlArticle(source, filePath = '', options = {}) {
   const metadata = extractHtmlMetadata(source);
   const body = extractBody(source);
   const directory = path.posix.dirname(String(filePath || '').replace(/\\/g, '/'));
-  const html = sanitizeArticle(body, directory === '.' ? '' : directory, options.sanitize);
   const fallbackTitle = path.posix.basename(String(filePath || '')).replace(/\.(html?|htm)$/i, '');
   const title = metadata.title || firstHeading(body) || fallbackTitle || '无标题';
+  const sandboxed = htmlRenderMode(source) === SANDBOX_MODE;
+  const html = sandboxed
+    ? sandboxArticleHtml(filePath, title)
+    : sanitizeArticle(body, directory === '.' ? '' : directory, options.sanitize);
 
   return {
     html,
@@ -243,5 +296,7 @@ module.exports = {
   parseHtmlArticle,
   extractHtmlMetadata,
   extractBody,
+  htmlRenderMode,
+  sandboxArticleHtml,
   sanitizeArticle
 };

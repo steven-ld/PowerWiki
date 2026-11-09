@@ -57,6 +57,9 @@
   "log": {
     "accessLog": "Access log"
   },
+  "html": {
+    "openFullPage": "Open the full page in a new tab"
+  },
   "static": {
     "imagePathDecodeFailed": "Image path decode failed, using original path",
     "imageNotFound": "Image not found",

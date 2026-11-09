@@ -17,15 +17,29 @@ const { t } = require('../config/i18n');
 const {
   ASSET_EXTENSIONS,
   HTML_EXTENSIONS,
+  IMAGE_EXTENSIONS,
   MARKDOWN_EXTENSIONS,
   extensionOf,
   resolveRepoFile,
+  resolveRequestFile,
   safeDecodePath
 } = require('../utils/safePath');
 const { encodePath } = require('../utils/articleAddress');
 
 // 这些前缀属于应用自身路由，仓库文件不能覆盖。
-const RESERVED_TOP_LEVEL = new Set(['api', 'stats', 'post', 'article', 's', 'pdfjs']);
+const RESERVED_TOP_LEVEL = new Set(['api', 'stats', 'post', 'article', 's', 'pdfjs', 'full']);
+
+// 沙箱完整页面可以引用的资源类型。刻意不包含 .json/.yaml/.txt 等数据文件，
+// 避免 /full/ 变成仓库任意文件下载入口。
+const FULL_ASSET_EXTENSIONS = new Set([
+  ...IMAGE_EXTENSIONS,
+  '.css', '.js', '.mjs',
+  '.woff', '.woff2', '.ttf', '.otf', '.eot',
+  '.mp3', '.wav', '.ogg', '.m4a',
+  '.mp4', '.webm', '.ogv',
+  '.wasm'
+]);
+const FULL_EXTENSIONS = new Set([...HTML_EXTENSIONS, ...FULL_ASSET_EXTENSIONS]);
 
 const DEFAULT_SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
@@ -46,26 +60,42 @@ function htmlSettings(config) {
   };
 }
 
+const CSP_RESOURCES = [
+  "default-src 'self' http: https: data: blob:",
+  "img-src 'self' http: https: data: blob:",
+  "media-src 'self' http: https: data: blob:",
+  "font-src 'self' http: https: data:",
+  "style-src 'unsafe-inline' http: https:",
+  "script-src 'unsafe-inline' 'unsafe-eval' http: https:",
+  "connect-src http: https:",
+  "form-action 'self' http: https:",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'"
+];
+
+const DOCUMENT_SANDBOX = 'sandbox allow-scripts allow-forms allow-popups ' +
+  'allow-popups-to-escape-sandbox allow-modals allow-downloads allow-top-navigation-by-user-activation';
+// 完整页面模式不给 allow-same-origin，也不限制 frame-ancestors：
+// 文档处于不透明源，脚本能运行但拿不到 Wiki 的同源能力。
+const ISOLATED_SANDBOX = 'sandbox allow-scripts allow-forms allow-popups ' +
+  'allow-modals allow-downloads allow-top-navigation-by-user-activation';
+const ISOLATED_RESOURCES = CSP_RESOURCES.filter(rule => !rule.startsWith('frame-ancestors'));
+
 /**
  * 配置的 404 页面仍作为独立文档输出，使用这里的默认 CSP 并放进沙箱，
  * 使其无法读取 Wiki 的 Cookie、localStorage 或同源接口。
  * 该页面确实需要同源能力时，可在 config.json 设置 "html": { "sandbox": false }。
  */
 function buildCsp(sandbox) {
-  const resources = [
-    "default-src 'self' http: https: data: blob:",
-    "img-src 'self' http: https: data: blob:",
-    "media-src 'self' http: https: data: blob:",
-    "font-src 'self' http: https: data:",
-    "style-src 'unsafe-inline' http: https:",
-    "script-src 'unsafe-inline' 'unsafe-eval' http: https:",
-    "connect-src http: https:",
-    "form-action 'self' http: https:",
-    "base-uri 'self'",
-    "object-src 'none'",
-    "frame-ancestors 'self'"
-  ];
-  return (sandbox ? 'sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads allow-top-navigation-by-user-activation; ' : '') + resources.join('; ');
+  return (sandbox ? `${DOCUMENT_SANDBOX}; ` : '') + CSP_RESOURCES.join('; ');
+}
+
+/**
+ * 文章内嵌完整页面的 CSP：脚本可用，但始终处于沙箱（不透明源）。
+ */
+function buildSandboxCsp() {
+  return `${ISOLATED_SANDBOX}; ${ISOLATED_RESOURCES.join('; ')}`;
 }
 
 function applyDocumentHeaders(res, settings) {
@@ -140,9 +170,9 @@ function refererDirectory(req) {
   const segments = clean.split('/').filter(Boolean);
   if (!segments.length || hasUnsafeSegment(segments)) return null;
 
-  // 文章页 /post/<仓库路径> 的 Referer 需要映射回仓库目录，
-  // 这样页面里的根绝对 /static/... 仍能优先命中同级 static/。
-  if (segments[0] === 'post') {
+  // 文章页 /post/<仓库路径> 与完整页面 /full/<仓库路径> 的 Referer
+  // 需要映射回仓库目录，这样页面里的根绝对 /static/... 仍能优先命中同级 static/。
+  if (segments[0] === 'post' || segments[0] === 'full') {
     segments.shift();
     segments.pop(); // 文章文件本身
     if (!segments.length || hasUnsafeSegment(segments)) return null;
@@ -206,6 +236,49 @@ function isInsideReservedPath(pathname) {
  */
 function createHtmlRoutes({ gitManager, config }) {
   const router = express.Router();
+
+  // 沙箱完整页面：/full/<仓库路径> 原样输出 HTML，并附带 sandbox CSP。
+  // 页面里的相对资源同样走这里，因此完整站点（CSS/JS/图片/字体）可以照常工作。
+  router.use(async (req, res, next) => {
+    if (req.path !== '/full' && !req.path.startsWith('/full/')) return next();
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    if (!htmlSettings(config).enabled) return next();
+
+    const relativePath = req.path.slice('/full'.length).replace(/^\/+/, '');
+    if (!relativePath) return next();
+
+    try {
+      const file = await resolveRequestFile(gitManager.repoPath, relativePath, {
+        extensions: FULL_EXTENSIONS
+      });
+      if (!file) return next();
+
+      if (HTML_EXTENSIONS.has(file.extension)) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Security-Policy', buildSandboxCsp());
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
+        res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.sendFile(file.absolute, { dotfiles: 'allow' });
+      }
+
+      const headers = {
+        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': 'public, max-age=0, must-revalidate',
+        'Cross-Origin-Resource-Policy': 'same-site'
+      };
+      // 直接打开 SVG 时禁止脚本执行，和仓库静态资源保持一致。
+      if (file.extension === '.svg') {
+        headers['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+      }
+      await sendFile(res, file, headers);
+      return;
+    } catch (error) {
+      console.error(`❌ ${t('static.serveHtmlFailed')}:`, error);
+      if (!res.headersSent) next(error);
+    }
+  });
 
   router.use(async (req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
@@ -331,6 +404,7 @@ module.exports = {
   createNotFoundHandler,
   applyDocumentHeaders,
   buildCsp,
+  buildSandboxCsp,
   htmlSettings,
   renderDefaultNotFound
 };

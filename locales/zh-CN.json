@@ -57,6 +57,9 @@
   "log": {
     "accessLog": "访问日志"
   },
+  "html": {
+    "openFullPage": "在新窗口打开完整页面"
+  },
   "static": {
     "imagePathDecodeFailed": "图片路径解码失败，使用原始路径",
     "imageNotFound": "图片不存在",

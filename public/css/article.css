@@ -72,6 +72,43 @@
   animation: fadeIn 0.2s ease-out;
 }
 
+/* HTML 沙箱完整页面：正文区域嵌入可运行脚本与样式的原始页面。
+   页面处于沙箱（不透明源），不会继承 Wiki 的样式和同源能力。 */
+.html-sandbox {
+  margin: 0;
+}
+
+.html-sandbox-frame {
+  display: block;
+  width: 100%;
+  height: clamp(520px, 82vh, 1200px);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: var(--shadow-md);
+}
+
+.html-sandbox-open {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.html-sandbox-open a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.html-sandbox-open a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .html-sandbox-frame {
+    height: 72vh;
+    border-radius: 8px;
+  }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
