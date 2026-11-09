@@ -287,10 +287,14 @@ function createHtmlRoutes({ gitManager, config }) {
         return res.sendFile(file.absolute, { dotfiles: 'allow' });
       }
 
+      // 沙箱文档处于不透明源，浏览器会把它的子资源请求视为跨源：
+      // CORP 必须是 cross-origin（否则 CSS/JS/图片被 blocked by response），
+      // 字体等 CORS 模式请求还需要 ACAO。这些文件本来就对匿名访问公开。
       const headers = {
         'X-Content-Type-Options': 'nosniff',
         'Cache-Control': 'public, max-age=0, must-revalidate',
-        'Cross-Origin-Resource-Policy': 'same-site'
+        'Cross-Origin-Resource-Policy': 'cross-origin',
+        'Access-Control-Allow-Origin': '*'
       };
       // 直接打开 SVG 时禁止脚本执行，和仓库静态资源保持一致。
       if (file.extension === '.svg') {

@@ -295,6 +295,9 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     const frameCss = await request('/full/docs/frame.css');
     assert.equal(frameCss.status, 200);
     assert.match(frameCss.headers.get('content-type'), /text\/css/);
+    // 沙箱文档是不透明源，它的子资源请求按跨源处理；same-site 会被浏览器拦截。
+    assert.equal(frameCss.headers.get('cross-origin-resource-policy'), 'cross-origin');
+    assert.equal(frameCss.headers.get('access-control-allow-origin'), '*');
     assert.equal((await request('/full/docs/assets/deep.css')).status, 200);
     const fullLevel = await request('/static/site.css', { headers: { referer: `${origin}/full/docs/full.html` } });
     assert.match(await fullLevel.text(), /rgb\(1,2,3\)/);
