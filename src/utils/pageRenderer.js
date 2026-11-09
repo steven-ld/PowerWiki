@@ -19,7 +19,7 @@ function renderPage(template, { seo, post, home, translations, lang, readerMode 
     html = html.replace('id="homeView" class="view active"', 'id="homeView" class="view"')
       .replace('id="postView" class="view"', 'id="postView" class="view active"')
       .replace('<div id="postBody" class="markdown-body"></div>',
-        () => `<div id="postBody" class="markdown-body">${post.type === 'pdf' ? `<h1>${escapeHtml(post.title)}</h1><a href="/api/pdf/${encodePath(post.path)}">PDF</a>` : post.html}</div>`);
+        () => `<div id="postBody" class="markdown-body" data-server-rendered="1">${post.type === 'pdf' ? `<h1>${escapeHtml(post.title)}</h1><a href="/api/pdf/${encodePath(post.path)}">PDF</a>` : post.html}</div>`);
   } else if (home) {
     html = html.replace('<!-- 首页内容由模板加载 -->', () => home);
   }

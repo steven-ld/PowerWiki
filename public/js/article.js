@@ -505,9 +505,6 @@ async function loadPost(filePath) {
 function renderPost(post) {
   if (typeof stopPdfRendering === 'function') stopPdfRendering();
 
-  // 切换文章时退出沉浸式阅读，避免上一页的展开状态带到下一篇
-  exitReaderMode({ restoreScroll: false, restoreFocus: false });
-
   // 复位视图切换状态：回到渲染视图并隐藏原始视图（防止上一篇残留）
   isRawView = false;
   if (rawBody) rawBody.style.display = 'none';
@@ -545,6 +542,15 @@ function renderPost(post) {
   const filePath = post.path;
   const fileType = post.type || (filePath.endsWith('.pdf') ? 'pdf' : 'markdown');
   const isHtmlPost = fileType === 'html' || /\.(html?|htm)$/i.test(filePath);
+
+  // 切换文章时退出沉浸式阅读，避免上一页的展开状态带到下一篇。
+  // HTML 文章稍后会统一进入沉浸态；这里若先退出再进入，首帧可能被画成窄栏。
+  if (!isHtmlPost) exitReaderMode({ restoreScroll: false, restoreFocus: false });
+
+  // 首屏正文由服务端直接注入。这里若原样再赋一次 innerHTML，HTML 文章的 iframe
+  // 会被销毁并重建，多一次请求、一次白屏。标记只对这一次渲染有效。
+  const serverRenderedBody = postBody.dataset.serverRendered === '1';
+  delete postBody.dataset.serverRendered;
 
   // HTML 文章默认提供「全屏」入口，直达 /full/ 下的完整页面；
   // 其余类型隐藏，避免出现无效链接。
@@ -596,8 +602,8 @@ function renderPost(post) {
       if (rawBtnText) rawBtnText.textContent = i18n.t('client.showRaw');
     }
 
-    // Markdown 文件：正常渲染
-    postBody.innerHTML = post.html;
+    // Markdown 文件：正常渲染（首屏服务端已渲染且内容一致时跳过重建）
+    if (!serverRenderedBody) postBody.innerHTML = post.html;
 
     // 为代码块添加复制按钮
     addCopyButtonsToCodeBlocks();
