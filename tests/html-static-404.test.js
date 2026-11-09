@@ -11,7 +11,7 @@ const {
   resolveRequestFile,
   safeDecodePath
 } = require('../src/utils/safePath');
-const { parseHtmlArticle } = require('../src/utils/htmlArticle');
+const { parseHtmlArticle, htmlRenderMode } = require('../src/utils/htmlArticle');
 const { htmlSettings } = require('../src/routes/html');
 
 async function until(check, timeout = 10000) {
@@ -86,6 +86,25 @@ test('HTML articles are sanitized and their assets rewritten', () => {
   assert.equal(parseHtmlArticle('<body><h1>Only</h1></body>', 'docs/a.htm').title, 'Only');
 });
 
+test('sandbox render mode embeds the original page in an isolated iframe', () => {
+  const source = '<!DOCTYPE html><html><head><title>Lab</title>' +
+    '<meta name="powerwiki-render" content="sandbox"></head>' +
+    '<body><h1>Lab</h1><script>window.__LAB__=1</script><style>body{background:#000}</style></body></html>';
+
+  assert.equal(htmlRenderMode(source), 'sandbox');
+  assert.equal(htmlRenderMode('<meta content="full" name="powerwiki-render">'), 'sandbox');
+  assert.equal(htmlRenderMode('<body><h1>plain</h1></body>'), 'article');
+
+  const article = parseHtmlArticle(source, 'demo/lab.html');
+  assert.equal(article.title, 'Lab');
+  assert.match(article.html, /<iframe class="html-sandbox-frame" src="\/full\/demo\/lab\.html"/);
+  assert.match(article.html, /sandbox="allow-scripts/);
+  assert.doesNotMatch(article.html, /allow-same-origin/);
+  // 正文只包含 iframe 外壳，没有把原页面的脚本搬进文章 DOM。
+  assert.doesNotMatch(article.html, /<script|background:#000/i);
+  assert.match(article.raw, /window\.__LAB__=1/);
+});
+
 test('html sanitize defaults on and keeps the legacy sandbox switch', () => {
   assert.equal(htmlSettings({}).sanitize, true);
   assert.equal(htmlSettings({ html: {} }).sanitize, true);
@@ -114,6 +133,16 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
   await fs.writeFile(path.join(repo, 'docs', 'index.html'), '<!DOCTYPE html><html><body><h1>Docs Index</h1></body></html>');
   await fs.writeFile(path.join(repo, 'docs', 'release-1.0.html'), '<!DOCTYPE html><html><body><h1>Release</h1></body></html>');
   await fs.writeFile(path.join(repo, 'docs', '100%.html'), '<!DOCTYPE html><html><body><h1>Percent</h1></body></html>');
+  await fs.writeFile(path.join(repo, 'docs', 'full.html'),
+    '<!DOCTYPE html><html><head><title>Full Lab</title>' +
+    '<meta name="powerwiki-render" content="sandbox">' +
+    '<link rel="stylesheet" href="frame.css">' +
+    '<link rel="stylesheet" href="assets/deep.css">' +
+    '<style>body{background:#0b1020}</style></head>' +
+    '<body><h1>Full Lab</h1><script>window.__FULL__="ran";</script></body></html>');
+  await fs.writeFile(path.join(repo, 'docs', 'frame.css'), 'body{margin:0}');
+  await fs.mkdir(path.join(repo, 'docs', 'assets'), { recursive: true });
+  await fs.writeFile(path.join(repo, 'docs', 'assets', 'deep.css'), 'h1{color:#3370ff}');
   await fs.writeFile(path.join(repo, 'docs', 'static', 'site.css'), 'body{color:rgb(1,2,3)}');
   await fs.writeFile(path.join(repo, 'static', 'site.css'), 'body{color:rgb(9,9,9)}');
   await fs.writeFile(path.join(repo, 'static', 'logo.svg'), '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
@@ -205,6 +234,45 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     assert.match(articleData.raw, /window\.__XSS__/);
     assert.doesNotMatch(articleData.html, /window\.__XSS__/);
 
+    // 沙箱完整页面：文章正文是 iframe，原始页面由 /full/ 原样输出。
+    const fullArticle = await (await request('/api/post/docs/full.html')).json();
+    assert.equal(fullArticle.type, 'html');
+    assert.equal(fullArticle.title, 'Full Lab');
+    assert.match(fullArticle.html, /<iframe class="html-sandbox-frame" src="\/full\/docs\/full\.html"/);
+    assert.doesNotMatch(fullArticle.html, /__FULL__/);
+    assert.match(fullArticle.raw, /__FULL__/);
+
+    const fullArticlePage = await (await request('/post/docs/full.html')).text();
+    const fullRendered = fullArticlePage.match(/<div id="postBody"[^>]*>([\s\S]*?)<\/div>/);
+    assert.ok(fullRendered, 'sandbox postBody rendered');
+    assert.match(fullRendered[1], /<iframe class="html-sandbox-frame" src="\/full\/docs\/full\.html"/);
+    assert.doesNotMatch(fullRendered[1], /__FULL__/);
+
+    const fullPage = await request('/full/docs/full.html');
+    assert.equal(fullPage.status, 200);
+    assert.match(fullPage.headers.get('content-type'), /text\/html/);
+    const fullCsp = fullPage.headers.get('content-security-policy');
+    assert.match(fullCsp, /sandbox/);
+    assert.match(fullCsp, /script-src/);
+    assert.doesNotMatch(fullCsp, /allow-same-origin/);
+    assert.equal(fullPage.headers.get('x-content-type-options'), 'nosniff');
+    const fullPageBody = await fullPage.text();
+    assert.match(fullPageBody, /<script>window\.__FULL__/);
+    assert.match(fullPageBody, /<style>body\{background:#0b1020\}<\/style>/);
+    assert.match(fullPageBody, /href="frame\.css"/);
+
+    // 相对资源（含子目录）与同级 static 都能正常取到。
+    const frameCss = await request('/full/docs/frame.css');
+    assert.equal(frameCss.status, 200);
+    assert.match(frameCss.headers.get('content-type'), /text\/css/);
+    assert.equal((await request('/full/docs/assets/deep.css')).status, 200);
+    const fullLevel = await request('/static/site.css', { headers: { referer: `${origin}/full/docs/full.html` } });
+    assert.match(await fullLevel.text(), /rgb\(1,2,3\)/);
+    // 数据文件和仓库敏感文件不能通过 /full/ 下载。
+    assert.equal((await request('/full/package.json')).status, 404);
+    assert.equal((await request('/full/secret.txt')).status, 404);
+    assert.equal((await request('/full/docs/..%2fsecret.txt')).status, 404);
+
     // 页面名本身带点或百分号时仍可省略 .html。
     for (const [url, location] of [
       ['/docs/release-1.0', '/post/docs/release-1.0.html'],
@@ -264,7 +332,7 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
 
     // 首页访问单独计数，不进入文章排行。
     const before = await (await request('/api/stats/detail')).json();
-    assert.equal(before.summary.totalPosts, 1); // 前面通过 /api/post 访问过 HTML 文章
+    assert.equal(before.summary.totalPosts, 2); // 前面通过 /api/post 访问过 guide 与 full 两篇 HTML 文章
     assert.deepEqual(await (await request('/api/home/view', { method: 'POST' })).json(), { homeViews: 1 });
     assert.deepEqual(await (await request('/api/home/view', { method: 'POST' })).json(), { homeViews: 2 });
     const stats = await (await request('/api/stats/detail')).json();

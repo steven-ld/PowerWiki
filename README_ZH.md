@@ -176,6 +176,18 @@ HTML 文件和 Markdown 文件一样作为文章处理：出现在侧边栏，�
 
 正文默认按白名单清洗：移除 `<script>`、`<style>`、`<iframe>`、表单、内联事件处理器和 `style` 属性，丢弃 `javascript:` 链接。相对地址在服务端改写：图片走 `/api/image/...`，指向其他 HTML/Markdown/PDF 的链接走 `/post/...`，其他资源（如 `static/site.css`）按页面所在目录解析，不再依赖 `Referer`。根绝对地址（`/static/...`、`/api/image/...`）保持原样；它们命中同级 `static/` 仍借助文章页面的 `Referer`，该地址会被映射回仓库目录。只有完全可信的内容才应设置 `html.sanitize: false`（旧的 `html.sandbox: false` 仍然兼容，等价于可信模式）。名为 `static` 的目录不会被当作文章目录扫描。`pages.notFound` 为空或文件不存在时使用内置 404 页面。
 
+### 完整 HTML 页面（沙箱模式）
+
+如果 HTML 文件本身就是一个完整的交互页面（脚本、Canvas、WebGL、表单），可以在 `<head>` 中声明：
+
+```html
+<meta name="powerwiki-render" content="sandbox">
+```
+
+声明后，正文不再清洗，而是变成一个受控的 `iframe`：允许脚本、表单、弹窗、下载和用户触发的顶层跳转，但不带 `allow-same-origin`。页面运行在不透明源中，无法读取 Wiki 的 Cookie、localStorage、IndexedDB，也不能调用同源接口。`content="full"` 是兼容别名。需要持久化状态时请使用内存变量，或对 Web Storage 访问做 `try / catch`。
+
+原始页面同时通过 `/full/<仓库路径>` 提供，返回未清洗的 HTML，并附带 `Content-Security-Policy: sandbox ...` 与 `X-Content-Type-Options: nosniff` 响应头，可在新窗口独立打开。该路由只提供 HTML 和静态资源（图片、CSS/JS、字体、音视频、WASM），并在解析前校验路径：拒绝目录穿越、隐藏路径段、符号链接和超过 50 MB 的文件。未声明该 meta 的 HTML 文件仍走白名单清洗。
+
 ## 🌍 环境变量
 
 PowerWiki 支持环境变量进行灵活部署：

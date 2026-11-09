@@ -176,6 +176,18 @@ HTML files behave like Markdown articles: they appear in the sidebar, are served
 
 The body is sanitized by default — `<script>`, `<style>`, `<iframe>`, forms, inline event handlers and `style` attributes are removed, and `javascript:` URLs are dropped. Relative URLs are rewritten server-side: images go to `/api/image/...`, links to other HTML/Markdown/PDF files go to `/post/...`, and other assets (such as `static/site.css`) are resolved from the page's directory, so no `Referer` is required. Root-absolute URLs (`/static/...`, `/api/image/...`) are left unchanged; same-level `static/` lookup for them still uses the article page's `Referer`, which is mapped back to the repository directory. Set `html.sanitize` to `false` only for fully trusted content (the legacy `html.sandbox: false` still works and maps to the same mode). Directories named `static/` are not treated as article containers. If `pages.notFound` is empty or missing, the built-in 404 page is used.
 
+### Full HTML pages (sandbox mode)
+
+If an HTML file is a complete interactive page (scripts, Canvas, WebGL, forms), opt in from its `<head>`:
+
+```html
+<meta name="powerwiki-render" content="sandbox">
+```
+
+The article body is then no longer sanitized; it becomes a controlled `iframe`: scripts, forms, popups, downloads and user-activated top navigation are allowed, but `allow-same-origin` is not. The page runs in an opaque origin and cannot read the Wiki's cookies, localStorage or IndexedDB, nor call same-origin APIs. `content="full"` is accepted as an alias. Keep state in memory, or wrap Web Storage access in `try / catch`.
+
+The original page is also served at `/full/<repo path>` with the unsanitized HTML and `Content-Security-Policy: sandbox ...` plus `X-Content-Type-Options: nosniff`, so it can be opened in its own tab. That route exposes only HTML and static assets (images, CSS/JS, fonts, audio/video, WASM) and validates paths before resolving them: traversal, hidden path segments, symlinks and files over 50 MB are rejected. HTML files without the meta tag still use the sanitized article mode.
+
 ## 🌍 Environment Variables
 
 PowerWiki supports environment variables for flexible deployment:
