@@ -89,14 +89,18 @@ app.get('/', async (req, res) => {
     const seo = apiRoutes.homeSEO(req);
     const description = seo.description;
     let home = renderTemplate(readTemplate('home'), { siteTitle: config.siteTitle, siteDescription: description });
+    let homeReaderMode = false;
     if (config.pages.home) {
       try {
         const content = await apiRoutes.getHomeContent();
-        home = `<div id="homeContent" class="markdown-body">${content.html}</div>`;
+        // data-server-rendered 让前端知道这段首屏 HTML 已是最新，不必再重建 iframe。
+        home = `<div id="homeContent" class="markdown-body" data-server-rendered="1">${content.html}</div>`;
+        // HTML 首页首帧就该是沉浸态，否则脚本接管时会先窄后宽跳一下。
+        homeReaderMode = /\.(html?|htm)$/i.test(content.path || '');
       } catch (error) { /* The repository may still be starting. */ }
     }
     res.setHeader('Cache-Control', 'no-store');
-    res.send(renderPage(fs.readFileSync(indexHtmlPath, 'utf8'), { home,
+    res.send(renderPage(fs.readFileSync(indexHtmlPath, 'utf8'), { home, readerMode: homeReaderMode,
       seo,
       translations: getFrontendTranslations(), lang: i18n.getLang() }));
   } catch (error) { res.status(503).send('Service unavailable'); }
@@ -380,6 +384,7 @@ app.get(['/post/*', '/article/*'], async (req, res) => {
     const post = apiRoutes.withSEO(await apiRoutes.getPost(file.path), req);
     res.setHeader('Cache-Control', 'no-store');
     res.send(renderPage(fs.readFileSync(indexHtmlPath, 'utf8'), { post, seo: post.seo,
+      readerMode: post.type === 'html',
       translations: getFrontendTranslations(), lang: i18n.getLang() }));
   } catch (error) {
     if (error.status === 404) return notFoundHandler(req, res);

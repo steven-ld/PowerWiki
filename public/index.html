@@ -42,7 +42,12 @@
     <link rel="stylesheet" href="/css/toc.css">
     <link rel="stylesheet" href="/css/media.css">
     <link rel="stylesheet" href="/css/components.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <!-- 代码高亮主题不参与首屏渲染：先以低优先级下载，加载完成后切换为正常样式表 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"
+          media="print" onload="this.media='all'">
+    <noscript>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    </noscript>
 </head>
 <body>
     <div class="app-container">
@@ -201,7 +206,7 @@
         <div id="siteFooter"></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <!-- Mermaid 体积较大且只有含图文章需要，改为按需加载（见 media.js） -->
     <!-- JS 模块化加载（按依赖顺序） -->
     <script src="/js/theme.js"></script>
     <script src="/js/i18n.js"></script>

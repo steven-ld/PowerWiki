@@ -402,7 +402,15 @@ function applyConfig(config) {
 
   // 加载首页模板
   if (homeView && config.home) {
-    homeView.innerHTML = config.home;
+    // 服务端已把首页内容渲染进首屏。这里若再整体替换 homeView，会把已开始加载的
+    // HTML iframe 销毁并重新创建，多出一次请求和一次白屏。
+    // 用服务端写入的标记判断，而不是比较 innerHTML：iframe 会先回传沙箱高度、
+    // 往元素上补 style，内容其实没变却会导致比较失败。
+    const renderedHome = homeView.querySelector('#homeContent');
+    const keepServerHome = !!(renderedHome && config.homeContent &&
+      renderedHome.dataset.serverRendered === '1');
+
+    if (!keepServerHome) homeView.innerHTML = config.home;
 
     // 如果配置了 README 文件，显示其内容
     if (config.homeContent && config.homeContent.html) {
@@ -411,7 +419,7 @@ function applyConfig(config) {
         const homeWelcome = document.getElementById('homeWelcome');
 
         if (homeContent) {
-          homeContent.innerHTML = config.homeContent.html;
+          if (!keepServerHome) homeContent.innerHTML = config.homeContent.html;
           homeContent.style.display = 'block';
 
           // 隐藏默认欢迎页面

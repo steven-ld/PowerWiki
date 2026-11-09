@@ -244,14 +244,42 @@ function openImageViewer(imageSrc, currentPage, totalPages) {
   document.addEventListener('keydown', escHandler);
 }
 
+// Mermaid 体积较大，且只有含图文章才需要；按需加载，避免拖慢首页首屏。
+let mermaidLoader = null;
+function ensureMermaid() {
+  if (typeof mermaid !== 'undefined') return Promise.resolve(mermaid);
+  if (!mermaidLoader) {
+    mermaidLoader = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+      script.async = true;
+      script.onload = () => {
+        try {
+          mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+        } catch (err) { /* 初始化失败时仍交给 run 尝试 */ }
+        resolve(mermaid);
+      };
+      script.onerror = () => reject(new Error('Mermaid failed to load'));
+      document.head.appendChild(script);
+    });
+  }
+  return mermaidLoader;
+}
+
 // 渲染 Mermaid 图表（将 code.language-mermaid 替换为可渲染的 div）
 async function renderMermaidBlocks(container = null) {
-  if (typeof mermaid === 'undefined') return;
   const target = container || postBody;
   if (!target) return;
 
   const mermaidBlocks = target.querySelectorAll('code.language-mermaid');
   if (mermaidBlocks.length === 0) return;
+
+  try {
+    await ensureMermaid();
+  } catch (err) {
+    console.warn('Mermaid unavailable:', err.message);
+    return;
+  }
 
   mermaidBlocks.forEach(code => {
     const pre = code.parentElement;
