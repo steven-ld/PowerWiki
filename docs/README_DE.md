@@ -42,6 +42,7 @@ Dokumentation in anderen Sprachen：
 - **SEO Optimiert** - Suchmaschinensichtbarkeit vollständig optimiert
 - **Frontmatter-Unterstützung** - YAML-Metadaten parsen
 - **Lokale Bilder** - Unterstützung für lokale Bilder in Markdown
+- **HTML-Artikel** - HTML-Dateien aus dem Repository als Artikel, mit Sandbox-Modus für vollständige interaktive Seiten
 - **Mehrsprachig** - Unterstützung für Deutsch und Englisch
 - **Docker-Unterstützung** - Vollständige Docker-Deployment-Unterstützung
 
@@ -99,9 +100,14 @@ Besuchen Sie `http://localhost:3150` in Ihrem Browser.
   "siteTitle": "My Wiki",
   "siteDescription": "Knowledge Base",
   "autoSyncInterval": 180000,
+  "html": {
+    "enabled": true,
+    "sanitize": true
+  },
   "pages": {
     "home": "README.md",
-    "about": "ABOUT.md"
+    "about": "ABOUT.md",
+    "notFound": "404.html"
   }
 }
 ```
@@ -118,6 +124,9 @@ Besuchen Sie `http://localhost:3150` in Ihrem Browser.
 | `sortOrder` | Sortierreihenfolge (`modified` oder `name`) | `modified` |
 | `pages.home` | Startseitendatei | `""` |
 | `pages.about` | Über-Seitendatei | `""` |
+| `pages.notFound` | Eigene 404-Seite (`.html` oder `.md`) | integrierte Seite |
+| `html.enabled` | HTML-Dateien als Artikel aufnehmen | `true` |
+| `html.sanitize` | Artikelkörper nach Allowlist bereinigen | `true` |
 
 ## Docker-Deployment
 
@@ -216,6 +225,32 @@ keywords: schlagwort1, schlagwort2, schlagwort3
 tags: [tag1, tag2]
 ---
 ```
+
+## HTML-Artikel
+
+HTML-Dateien werden wie Markdown-Artikel behandelt: Sie erscheinen in der Seitenleiste, werden unter `/post/<Repository-Pfad>` ausgeliefert und nutzen dieselbe Leseansicht mit Inhaltsverzeichnis, Kopieren, Rohansicht, Freigabe und SEO. Alte Adressen wie `/docs/page` oder `/docs/page.html` leiten mit 301 auf `/post/docs/page.html` um. Gerendert wird nur der `<body>`; `<title>` und `<meta name="description|keywords">` liefern die Artikelmetadaten. Auch `pages.home` darf auf eine `.html`-Datei zeigen.
+
+![HTML-Datei als PowerWiki-Artikel mit Inhaltsverzeichnis und Lese-Toolbar](../assets/screenshots/html-article-plain.jpg)
+
+Der Körper wird standardmäßig bereinigt: `<script>`, `<style>`, `<iframe>`, Formulare, Inline-Event-Handler und `style`-Attribute entfallen, `javascript:`-URLs werden verworfen. Relative Adressen werden serverseitig umgeschrieben: Bilder auf `/api/image/...`, Links auf andere HTML-/Markdown-/PDF-Dateien auf `/post/...`, übrige Assets relativ zum Verzeichnis der Seite. `html.sanitize: false` nur für vollständig vertrauenswürdige Inhalte setzen.
+
+### Vollständige HTML-Seiten (Sandbox)
+
+Interaktive Seiten aktivieren den Sandbox-Modus im `<head>`:
+
+```html
+<meta name="powerwiki-render" content="sandbox">
+```
+
+Dann wird die Seite unbereinigt in einem `iframe` eingebettet: Skripte, Formulare, Popups, Downloads und nutzergesteuerte Top-Navigation sind erlaubt, `allow-same-origin` nicht. Die Seite läuft in einer undurchsichtigen Origin und kann weder Cookies, localStorage noch Same-Origin-APIs des Wikis lesen. Die Originalseite ist zusätzlich unter `/full/<Repository-Pfad>` mit `Content-Security-Policy: sandbox ...` erreichbar; diese Route liefert nur HTML und statische Assets und lehnt Traversal, versteckte Pfadsegmente, Symlinks und Dateien über 50 MB ab.
+
+![Interaktives HTML-Dashboard im immersiven Lesemodus in PowerWiki](../assets/screenshots/html-article.jpg)
+
+### Immersives Lesen
+
+Sandbox-Seiten und HTML-Startseiten öffnen direkt immersiv: Die Lesefläche füllt das Viewport, `Esc` oder die Schaltfläche oben rechts kehrt zurück, das `iframe` wird nicht neu geladen. Der Server liefert den immersiven Zustand bereits im ersten Frame, daher gibt es beim Laden keinen Breitensprung. Die Höhe folgt dem gemeldeten Inhalt (240–20000px), sodass außerhalb des immersiven Modus keine zweite Scrollleiste entsteht. Normale HTML-Artikel ohne Sandbox-Meta haben kein `iframe`, scrollen als normale Seite und öffnen ihre **Vollbild**-Schaltfläche unter `/full/...` in einem neuen Tab.
+
+Der Artikelrahmen sendet Sandbox-Seiten beim Laden und bei jedem Themenwechsel `{ type: 'powerwiki:context', version: 1, theme, lang }`; eine Seite kann ihn mit `parent.postMessage({ type: 'powerwiki:request-context' }, '*')` anfordern.
 
 ## Technologie-Stack
 

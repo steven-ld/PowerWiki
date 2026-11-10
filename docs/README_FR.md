@@ -42,6 +42,7 @@ Documentation dans d'autres langues：
 - **SEO Optimisé** - Visibilité dans les moteurs de recherche entièrement optimisée
 - **Support Frontmatter** - Analyser les métadonnées YAML
 - **Images Locales** - Support pour référencer des images locales dans Markdown
+- **Articles HTML** - Les fichiers HTML du dépôt deviennent des articles, avec un mode sandbox pour les pages interactives complètes
 - **Multi-langues** - Support pour le français et l'anglais
 - **Support Docker** - Support complet du déploiement Docker
 
@@ -99,9 +100,14 @@ Visitez `http://localhost:3150` dans votre navigateur.
   "siteTitle": "My Wiki",
   "siteDescription": "Knowledge Base",
   "autoSyncInterval": 180000,
+  "html": {
+    "enabled": true,
+    "sanitize": true
+  },
   "pages": {
     "home": "README.md",
-    "about": "ABOUT.md"
+    "about": "ABOUT.md",
+    "notFound": "404.html"
   }
 }
 ```
@@ -118,6 +124,9 @@ Visitez `http://localhost:3150` dans votre navigateur.
 | `sortOrder` | Ordre de tri (`modified` ou `name`) | `modified` |
 | `pages.home` | Fichier de la page d'accueil | `""` |
 | `pages.about` | Fichier de la page À propos | `""` |
+| `pages.notFound` | Page 404 personnalisée (`.html` ou `.md`) | page intégrée |
+| `html.enabled` | Inclure les fichiers HTML comme articles | `true` |
+| `html.sanitize` | Assainir le corps de l'article via une liste blanche | `true` |
 
 ## Déploiement Docker
 
@@ -216,6 +225,32 @@ keywords: mot1, mot2, mot3
 tags: [tag1, tag2]
 ---
 ```
+
+## Articles HTML
+
+Les fichiers HTML sont traités comme des articles Markdown : ils apparaissent dans la barre latérale, sont servis sous `/post/<chemin du dépôt>` et utilisent la même vue de lecture (sommaire, copie, vue brute, lien de partage et SEO). Les anciennes adresses comme `/docs/page` ou `/docs/page.html` redirigent en 301 vers `/post/docs/page.html`. Seul le `<body>` est rendu ; `<title>` et `<meta name="description|keywords">` fournissent les métadonnées. `pages.home` peut aussi pointer vers un fichier `.html`.
+
+![Fichier HTML affiché comme article PowerWiki avec sommaire et outils de lecture](../assets/screenshots/html-article-plain.jpg)
+
+Le corps est assaini par défaut : `<script>`, `<style>`, `<iframe>`, formulaires, gestionnaires d'événements en ligne et attributs `style` sont retirés, les URL `javascript:` supprimées. Les adresses relatives sont réécrites côté serveur : images vers `/api/image/...`, liens vers d'autres fichiers HTML/Markdown/PDF vers `/post/...`, autres ressources résolues depuis le répertoire de la page. N'utilisez `html.sanitize: false` que pour du contenu totalement fiable.
+
+### Pages HTML complètes (mode sandbox)
+
+Les pages interactives activent le mode sandbox dans le `<head>` :
+
+```html
+<meta name="powerwiki-render" content="sandbox">
+```
+
+La page est alors intégrée sans assainissement dans un `iframe` : scripts, formulaires, popups, téléchargements et navigation supérieure déclenchée par l'utilisateur sont autorisés, `allow-same-origin` ne l'est pas. La page s'exécute dans une origine opaque et ne peut lire ni les cookies, ni le localStorage, ni les API same-origin du Wiki. La page originale est aussi disponible sous `/full/<chemin du dépôt>` avec `Content-Security-Policy: sandbox ...` ; cette route ne sert que du HTML et des ressources statiques et refuse le traversal, les segments cachés, les liens symboliques et les fichiers de plus de 50 Mo.
+
+![Tableau de bord HTML interactif ouvert en lecture immersive dans PowerWiki](../assets/screenshots/html-article.jpg)
+
+### Lecture immersive
+
+Les pages sandbox et une page d'accueil HTML s'ouvrent directement en mode immersif : la zone de lecture remplit le viewport, `Esc` ou le bouton en haut à droite revient à la vue normale, et l'`iframe` n'est pas rechargé. Le serveur fournit l'état immersif dès la première frame, donc aucun saut de largeur au chargement. La hauteur suit le contenu signalé (240–20000px), afin qu'aucune seconde barre de défilement n'apparaisse hors mode immersif. Les articles HTML ordinaires, sans meta sandbox, n'ont pas d'`iframe` : ils défilent comme une page normale et leur bouton **Plein écran** ouvre `/full/...` dans un nouvel onglet.
+
+Le cadre de l'article envoie aux pages sandbox `{ type: 'powerwiki:context', version: 1, theme, lang }` au chargement et à chaque changement de thème ; une page peut le demander avec `parent.postMessage({ type: 'powerwiki:request-context' }, '*')`.
 
 ## Pile Technologique
 

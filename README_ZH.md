@@ -45,6 +45,18 @@
 
 ![PowerWiki 暗夜模式下的技术文档](assets/screenshots/dark-mode.jpg)
 
+### 仓库里的 HTML 文件直接变成文章
+
+HTML 文件和 Markdown 放在同一个仓库、出现在同一个侧边栏，共用同一套阅读界面：自动目录、复制全文、原始视图、分享短链和阅读数。只取 `<body>` 作为正文，`<title>` 与 `<meta name="description">` 作为文章标题和描述。
+
+![普通 HTML 文件在 PowerWiki 中以文章形式呈现，带自动目录与阅读工具栏](assets/screenshots/html-article-plain.jpg)
+
+### 完整 HTML 页面以沉浸式阅读打开
+
+数据看板、落地页、WebGL 场景这类完整页面只需声明沙箱 meta，就在当前页面展开为沉浸式画布。桌面端保留左侧目录，按 `Esc` 或右上角按钮回到普通视图，iframe 里的页面状态不会丢失。
+
+![交互式 HTML 数据看板在 PowerWiki 中以沉浸式阅读打开](assets/screenshots/html-article.jpg)
+
 ---
 
 ## 💡 设计理念
@@ -86,6 +98,7 @@ PowerWiki 诞生于对「知识管理」与「技术写作」的深度思考。�
 - **SEO 优化** - 全面优化搜索引擎可见性
 - **Frontmatter 支持** - 解析 YAML 元信息
 - **本地图片** - 支持 Markdown 中引用本地图片
+- **HTML 文章** - 仓库里的 HTML 文件直接作为文章渲染，完整交互页面可用沙箱模式
 - **多语言** - 支持中文和英文
 - **Docker 支持** - 完整的 Docker 部署支持
 
@@ -186,7 +199,11 @@ HTML 文件和 Markdown 文件一样作为文章处理：出现在侧边栏，�
 
 声明后，正文不再清洗，而是变成一个受控的 `iframe`：允许脚本、表单、弹窗、下载和用户触发的顶层跳转，但不带 `allow-same-origin`。页面运行在不透明源中，无法读取 Wiki 的 Cookie、localStorage、IndexedDB，也不能调用同源接口。`content="full"` 是兼容别名。需要持久化状态时请使用内存变量，或对 Web Storage 访问做 `try / catch`。
 
-原始页面同时通过 `/full/<仓库路径>` 提供，返回未清洗的 HTML，并附带 `Content-Security-Policy: sandbox ...` 与 `X-Content-Type-Options: nosniff` 响应头，可在新窗口独立打开。该路由只提供 HTML 和静态资源（图片、CSS/JS、字体、音视频、WASM），并在解析前校验路径：拒绝目录穿越、隐藏路径段、符号链接和超过 50 MB 的文件。`/full/docs/` 这类目录地址与 `/full/docs/guide` 这类省略后缀的地址会分别解析到 `index.html` 与 `guide.html`，完整页面里的相对链接可以照常工作。未声明该 meta 的 HTML 文件仍走白名单清洗。所有 HTML 文章的工具条默认提供一个主色「全屏」按钮，点击即在新窗口打开这个地址；嵌入页面下方的文字链接保留作为无 JavaScript 时的兜底。
+原始页面同时通过 `/full/<仓库路径>` 提供，返回未清洗的 HTML，并附带 `Content-Security-Policy: sandbox ...` 与 `X-Content-Type-Options: nosniff` 响应头，可在新窗口独立打开。该路由只提供 HTML 和静态资源（图片、CSS/JS、字体、音视频、WASM），并在解析前校验路径：拒绝目录穿越、隐藏路径段、符号链接和超过 50 MB 的文件。`/full/docs/` 这类目录地址与 `/full/docs/guide` 这类省略后缀的地址会分别解析到 `index.html` 与 `guide.html`，完整页面里的相对链接可以照常工作。未声明该 meta 的 HTML 文件仍走白名单清洗。
+
+### 沉浸式阅读
+
+沙箱页面与 HTML 首页点击「全屏」后在当前页面展开为沉浸式画布：iframe 不重新加载，桌面端保留左侧目录，按 `Esc` 或右上角「退出全屏」返回。服务端首帧就输出沉浸态，加载时不会出现「先窄后宽」的跳动。沙箱页面通过 `postMessage` 上报内容高度，iframe 按内容展开（限制在 240–20000px），非沉浸场景下不会出现第二条滚动条。没有沙箱标记的普通 HTML 文章没有 iframe，按普通页面滚动，其「全屏」按钮直接在新窗口打开 `/full/` 地址；嵌入页面下方的文字链接保留作为无 JavaScript 时的兜底。
 
 沙箱页面读不到 Wiki 的 `data-theme` 和 Web Storage，因此文章外壳会在 iframe 加载完成后，以及站点主题变化时，向沙箱发送一条界面偏好消息：
 

@@ -42,6 +42,7 @@ Documentación en otros idiomas：
 - **SEO Optimizado** - Visibilidad en buscadores completamente optimizada
 - **Soporte Frontmatter** - Analizar metadatos YAML
 - **Imágenes Locales** - Soporte para referenciar imágenes locales en Markdown
+- **Artículos HTML** - Archivos HTML del repositorio como artículos, con modo sandbox para páginas interactivas completas
 - **Multiidioma** - Soporte para español e inglés
 - **Soporte Docker** - Soporte completo de despliegue con Docker
 
@@ -99,9 +100,14 @@ Editar `config.json`：
   "siteTitle": "My Wiki",
   "siteDescription": "Knowledge Base",
   "autoSyncInterval": 180000,
+  "html": {
+    "enabled": true,
+    "sanitize": true
+  },
   "pages": {
     "home": "README.md",
-    "about": "ABOUT.md"
+    "about": "ABOUT.md",
+    "notFound": "404.html"
   }
 }
 ```
@@ -118,6 +124,9 @@ Editar `config.json`：
 | `sortOrder` | Orden de clasificación (`modified` o `name`) | `modified` |
 | `pages.home` | Archivo de página de inicio | `""` |
 | `pages.about` | Archivo de página Acerca de | `""` |
+| `pages.notFound` | Página 404 personalizada (`.html` o `.md`) | página integrada |
+| `html.enabled` | Incluir archivos HTML como artículos | `true` |
+| `html.sanitize` | Sanitizar el cuerpo del artículo con una lista blanca | `true` |
 
 ## Despliegue con Docker
 
@@ -216,6 +225,32 @@ keywords: palabra1, palabra2, palabra3
 tags: [etiqueta1, etiqueta2]
 ---
 ```
+
+## Artículos HTML
+
+Los archivos HTML se tratan como artículos Markdown: aparecen en la barra lateral, se sirven en `/post/<ruta del repositorio>` y usan la misma vista de lectura (índice, copiar, vista sin formato, enlace para compartir y SEO). Las direcciones antiguas como `/docs/page` o `/docs/page.html` redirigen con 301 a `/post/docs/page.html`. Solo se renderiza el `<body>`; `<title>` y `<meta name="description|keywords">` aportan los metadatos del artículo. `pages.home` también puede apuntar a un archivo `.html`.
+
+![Archivo HTML mostrado como artículo de PowerWiki con índice y herramientas de lectura](../assets/screenshots/html-article-plain.jpg)
+
+El cuerpo se sanitiza por defecto: se eliminan `<script>`, `<style>`, `<iframe>`, formularios, manejadores de eventos en línea y atributos `style`, y se descartan las URL `javascript:`. Las direcciones relativas se reescriben en el servidor: las imágenes van a `/api/image/...`, los enlaces a otros archivos HTML/Markdown/PDF a `/post/...` y el resto de recursos se resuelven desde el directorio de la página. Usa `html.sanitize: false` solo para contenido totalmente de confianza.
+
+### Páginas HTML completas (modo sandbox)
+
+Las páginas interactivas activan el modo sandbox desde el `<head>`:
+
+```html
+<meta name="powerwiki-render" content="sandbox">
+```
+
+Entonces la página se incrusta sin sanitizar en un `iframe`: se permiten scripts, formularios, ventanas emergentes, descargas y navegación superior activada por el usuario, pero no `allow-same-origin`. La página se ejecuta en un origen opaco y no puede leer cookies, localStorage ni API del mismo origen del Wiki. La página original también está disponible en `/full/<ruta del repositorio>` con `Content-Security-Policy: sandbox ...`; esa ruta solo sirve HTML y recursos estáticos y rechaza traversal, segmentos ocultos, enlaces simbólicos y archivos de más de 50 MB.
+
+![Panel HTML interactivo abierto en modo de lectura inmersiva en PowerWiki](../assets/screenshots/html-article.jpg)
+
+### Lectura inmersiva
+
+Las páginas sandbox y la página de inicio HTML se abren directamente en modo inmersivo: el lienzo de lectura llena el viewport, `Esc` o el botón superior derecho vuelven a la vista normal y el `iframe` no se recarga. El servidor entrega el estado inmersivo desde el primer fotograma, así que no hay salto de anchura al cargar. La altura sigue el contenido informado (240–20000px), de modo que fuera del modo inmersivo no aparece una segunda barra de desplazamiento. Los artículos HTML normales, sin meta de sandbox, no tienen `iframe`: se desplazan como una página normal y su botón **Pantalla completa** abre `/full/...` en una pestaña nueva.
+
+El marco del artículo envía a las páginas sandbox `{ type: 'powerwiki:context', version: 1, theme, lang }` al cargar y en cada cambio de tema; una página puede solicitarlo con `parent.postMessage({ type: 'powerwiki:request-context' }, '*')`.
 
 ## Pila Tecnológica
 

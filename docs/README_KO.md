@@ -42,6 +42,7 @@ Git 기반 마크다운 위키 시스템. 자동 동기화, 구문 하이라이�
 - **SEO 최적화** - 검색 엔진 가시성을 전반적으로 최적화
 - **Frontmatter 지원** - YAML 메타 정보 파싱
 - **로컬 이미지** - Markdown에서 로컬 이미지 참조 지원
+- **HTML 문서** - 저장소의 HTML 파일을 문서로 표시하며, 완전한 인터랙티브 페이지는 샌드박스 모드로 지원
 - **다국어** - 한국어와 영어 지원
 - **Docker 지원** - 완전한 Docker 배포 지원
 
@@ -99,9 +100,14 @@ npm start
   "siteTitle": "My Wiki",
   "siteDescription": "Knowledge Base",
   "autoSyncInterval": 180000,
+  "html": {
+    "enabled": true,
+    "sanitize": true
+  },
   "pages": {
     "home": "README.md",
-    "about": "ABOUT.md"
+    "about": "ABOUT.md",
+    "notFound": "404.html"
   }
 }
 ```
@@ -118,6 +124,9 @@ npm start
 | `sortOrder` | 정렬 순서 (`modified` 또는 `name`) | `modified` |
 | `pages.home` | 홈 페이지 파일 | `""` |
 | `pages.about` | About 페이지 파일 | `""` |
+| `pages.notFound` | 사용자 정의 404 페이지 (`.html` 또는 `.md`) | 내장 페이지 |
+| `html.enabled` | HTML 파일을 문서로 포함 | `true` |
+| `html.sanitize` | 허용 목록으로 본문 정화 | `true` |
 
 ## Docker 배포
 
@@ -216,6 +225,32 @@ keywords: 키워드1, 키워드2, 키워드3
 tags: [태그1, 태그2]
 ---
 ```
+
+## HTML 문서
+
+HTML 파일은 Markdown 문서와 동일하게 처리됩니다. 사이드바에 표시되고 `/post/<저장소 경로>`로 제공되며, 목차·복사·원문 보기·공유·SEO를 갖춘 같은 읽기 화면을 사용합니다. `/docs/page`, `/docs/page.html` 같은 이전 주소는 `/post/docs/page.html`로 301 리디렉션됩니다. `<body>`만 렌더링하며 `<title>`과 `<meta name="description|keywords">`가 문서 메타데이터가 됩니다. `pages.home`에 `.html` 파일을 지정할 수도 있습니다.
+
+![HTML 파일이 목차와 읽기 도구를 갖춘 PowerWiki 문서로 표시된 화면](../assets/screenshots/html-article-plain.jpg)
+
+본문은 기본적으로 정화됩니다. `<script>`, `<style>`, `<iframe>`, 폼, 인라인 이벤트 핸들러, `style` 속성이 제거되고 `javascript:` URL은 버려집니다. 상대 주소는 서버에서 다시 씁니다. 이미지는 `/api/image/...`, 다른 HTML/Markdown/PDF 링크는 `/post/...`, 나머지 자산은 페이지 디렉터리 기준으로 해석됩니다. `html.sanitize: false`는 완전히 신뢰하는 콘텐츠에만 사용하세요.
+
+### 전체 HTML 페이지(샌드박스 모드)
+
+인터랙티브 페이지는 `<head>`에서 샌드박스 모드를 선언합니다:
+
+```html
+<meta name="powerwiki-render" content="sandbox">
+```
+
+이 경우 본문은 정화되지 않고 `iframe`에 삽입됩니다. 스크립트, 폼, 팝업, 다운로드, 사용자 조작에 의한 최상위 탐색은 허용되지만 `allow-same-origin`은 허용되지 않습니다. 페이지는 불투명 오리진에서 실행되어 Wiki의 쿠키, localStorage, 동일 출처 API를 읽을 수 없습니다. 원본 페이지는 `/full/<저장소 경로>`에서도 `Content-Security-Policy: sandbox ...`와 함께 제공되며, 이 경로는 HTML과 정적 자산만 반환하고 경로 탐색, 숨김 경로, 심볼릭 링크, 50 MB 초과 파일을 거부합니다.
+
+![인터랙티브 HTML 대시보드를 PowerWiki 몰입형 읽기로 연 화면](../assets/screenshots/html-article.jpg)
+
+### 몰입형 읽기
+
+샌드박스 페이지와 HTML 홈페이지는 처음부터 몰입 상태로 열립니다. 읽기 영역이 뷰포트를 채우고, `Esc` 또는 오른쪽 위 버튼으로 일반 화면으로 돌아가며, `iframe`은 다시 로드되지 않습니다. 서버가 첫 프레임부터 몰입 상태를 출력하므로 로딩 중 너비가 튀지 않습니다. 높이는 보고된 콘텐츠를 따르며(240–20000px) 몰입 상태가 아닐 때 두 번째 스크롤바가 생기지 않습니다. 샌드박스 선언이 없는 일반 HTML 문서는 `iframe`이 없어 일반 페이지처럼 스크롤되고, **전체 화면** 버튼은 `/full/...`을 새 탭에서 엽니다.
+
+문서 셸은 로딩 시와 테마 변경 시 샌드박스 페이지에 `{ type: 'powerwiki:context', version: 1, theme, lang }`를 보냅니다. 페이지는 `parent.postMessage({ type: 'powerwiki:request-context' }, '*')`로 요청할 수 있습니다.
 
 ## 기술 스택
 

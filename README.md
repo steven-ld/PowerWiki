@@ -45,6 +45,18 @@ Use the theme toggle to read the same documentation with a dark background.
 
 ![PowerWiki technical article in dark mode](assets/screenshots/dark-mode.jpg)
 
+### Repository HTML files become articles
+
+HTML files sit in the same repository, appear in the sidebar and use the same reading view as Markdown: table of contents, copy, raw view, share link and view count. Only the `<body>` is rendered, and `<title>` plus `<meta name="description">` become the article metadata.
+
+![A plain HTML file rendered as a PowerWiki article with table of contents and reading tools](assets/screenshots/html-article-plain.jpg)
+
+### Full HTML pages open in immersive reading
+
+Complete HTML pages — dashboards, landing pages, WebGL scenes — declare a sandbox meta tag and open in place as an immersive canvas. The sidebar stays on desktop, `Esc` or the exit button returns to the normal view, and the page inside the iframe keeps its state.
+
+![An interactive HTML dashboard opened in immersive reading mode inside PowerWiki](assets/screenshots/html-article.jpg)
+
 ---
 
 ## 💡 Design Philosophy
@@ -86,6 +98,7 @@ No registration, no cloud. All data stored in an environment you control.
 - **SEO Optimized** - Full SEO optimization
 - **Frontmatter Support** - Parse YAML metadata
 - **Local Images** - Support for local images in Markdown
+- **HTML Articles** - Repository HTML files become articles, with a sandbox mode for full interactive pages
 - **Multi-language** - Chinese and English support
 - **Docker Ready** - Full Docker support
 
@@ -186,7 +199,11 @@ If an HTML file is a complete interactive page (scripts, Canvas, WebGL, forms), 
 
 The article body is then no longer sanitized; it becomes a controlled `iframe`: scripts, forms, popups, downloads and user-activated top navigation are allowed, but `allow-same-origin` is not. The page runs in an opaque origin and cannot read the Wiki's cookies, localStorage or IndexedDB, nor call same-origin APIs. `content="full"` is accepted as an alias. Keep state in memory, or wrap Web Storage access in `try / catch`.
 
-The original page is also served at `/full/<repo path>` with the unsanitized HTML and `Content-Security-Policy: sandbox ...` plus `X-Content-Type-Options: nosniff`, so it can be opened in its own tab. That route exposes only HTML and static assets (images, CSS/JS, fonts, audio/video, WASM) and validates paths before resolving them: traversal, hidden path segments, symlinks and files over 50 MB are rejected. Directory URLs such as `/full/docs/` and extensionless paths such as `/full/docs/guide` resolve to `index.html` and `guide.html` respectively, so relative links in a full page keep working. HTML files without the meta tag still use the sanitized article mode. Every HTML article shows a primary **Full screen** button in its toolbar that opens this URL in a new tab; the plain link below the embedded page stays as a no-JS fallback.
+The original page is also served at `/full/<repo path>` with the unsanitized HTML and `Content-Security-Policy: sandbox ...` plus `X-Content-Type-Options: nosniff`, so it can be opened in its own tab. That route exposes only HTML and static assets (images, CSS/JS, fonts, audio/video, WASM) and validates paths before resolving them: traversal, hidden path segments, symlinks and files over 50 MB are rejected. Directory URLs such as `/full/docs/` and extensionless paths such as `/full/docs/guide` resolve to `index.html` and `guide.html` respectively, so relative links in a full page keep working. HTML files without the meta tag still use the sanitized article mode.
+
+### Immersive reading
+
+Sandbox pages and an HTML home page open in place as an immersive reading canvas: the iframe is not reloaded, the table of contents stays on desktop, and `Esc` or the top-right exit button returns to the normal view. The server renders that state from the first frame, so the layout does not jump from a narrow column to full width while loading. Sandbox frames report their content height through `postMessage` (clamped to 240–20000px), so views that are not immersive do not grow a second scrollbar. Plain HTML articles have no iframe: they scroll as a normal page, and their **Full screen** button opens the `/full/` URL in a new tab. The plain link below the embedded page stays as a no-JS fallback.
 
 Sandboxed pages cannot read the Wiki's `data-theme` or Web Storage, so the article shell sends them a small context message after the iframe loads and again whenever the site theme changes:
 
