@@ -148,6 +148,10 @@ function loadArticleScript(contextOverrides = {}) {
     },
     document: {
       title: '',
+      // 沉浸式阅读的展开状态挂在 html/body 上，这里给出最小可用的节点
+      documentElement: createElement(),
+      body: createElement(),
+      addEventListener() {},
       querySelector() { return createElement(); },
       getElementById(id) {
         return elements[id] || null;
@@ -222,6 +226,9 @@ test('文章导航安全显示文件名，正确编码路径，切换后清除�
     ],
     encodePath: value => value.split('/').map(encodeURIComponent).join('/'),
     document: {
+      documentElement: createElement(),
+      body: createElement(),
+      addEventListener() {},
       getElementById: id => id === 'postNavigation' ? navigation : null,
       createElement
     }

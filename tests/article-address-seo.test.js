@@ -85,7 +85,7 @@ test('stable routes, unified SSR/SEO, feeds, missing articles and Git rename', {
     const bot = await (await request('/article/stable', { headers: { 'user-agent': 'Googlebot' } })).text();
     assert.equal(normal, bot);
     assert.match(normal, /id="postView" class="view active"/);
-    assert.match(normal, /id="postBody" class="markdown-body">[\s\S]*Visible article body/);
+    assert.match(normal, /id="postBody" class="markdown-body"[^>]*>[\s\S]*Visible article body/);
     assert.match(normal, /id="canonicalUrl" href="https:\/\/wiki.example\/article\/stable"/);
     assert.match(normal, /A &amp; B &lt;Title&gt;/);
     const bootstrap = JSON.parse(normal.match(/window.__INITIAL_POST__=(.*?);<\/script>/)[1]);
