@@ -19,7 +19,7 @@
     "sanitize": true
   },
   "pages": {
-    "home": "README.md",
+    "home": "README.html",
     "about": "ABOUT.md",
     "notFound": "404.html"
   }
