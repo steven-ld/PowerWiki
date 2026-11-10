@@ -295,6 +295,9 @@ function parseHtmlArticle(source, filePath = '', options = {}) {
     keywords: metadata.keywords,
     tags: [],
     frontmatter: {},
+    // 沙箱页面是 iframe 里的一整页，适合沉浸布局；普通 HTML 正文仍按文章排版，
+    // 由页面自身滚动，不能套用会锁住 body 滚动的 reader-expanded。
+    sandboxed,
     raw: source
   };
 }

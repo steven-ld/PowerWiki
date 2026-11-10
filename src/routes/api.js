@@ -437,7 +437,8 @@ function createApiRoutes(options) {
         ? gitManager.readHtmlFile(homePath).then(content =>
             parseHtmlArticle(content, homePath, { sanitize: htmlSettings(config).sanitize }))
         : gitManager.readMarkdownFile(homePath).then(content => parseMarkdown(content, homePath)))
-        .then(parsed => ({ html: parsed.html, title: parsed.title || '首页', path: homePath }));
+        .then(parsed => ({ html: parsed.html, title: parsed.title || '首页', path: homePath,
+          sandboxed: parsed.sandboxed === true }));
       pendingHome = { version, promise };
       promise.catch(() => { if (pendingHome && pendingHome.promise === promise) pendingHome = null; });
     }

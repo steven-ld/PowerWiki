@@ -73,12 +73,12 @@ function toggleReaderMode() {
   if (isReaderMode()) exitReaderMode(); else enterReaderMode();
 }
 
-/* 首页沿用同一套沉浸态：配置的首页是 .html 时同样铺满视口，
+/* 首页沿用同一套沉浸态：配置的首页是沙箱 HTML 时同样铺满视口，
    退出后回到带站点外壳的阅读视图（iframe 此时按内容高度展开）。
-   首页是 Markdown 时保持原来的窄栏排版。 */
+   首页是 Markdown 或普通 HTML 正文时保持原来的窄栏排版。 */
 function isHtmlHome() {
-  return !!(siteConfig && siteConfig.homeContent &&
-    /\.(html?|htm)$/i.test(siteConfig.homeContent.path || ''));
+  // 只有沙箱首页（iframe 里的一整页）适合沉浸态；普通 HTML 正文要正常滚动。
+  return !!(siteConfig && siteConfig.homeContent && siteConfig.homeContent.sandboxed === true);
 }
 
 function applyHomeReaderMode() {
@@ -96,6 +96,8 @@ if (fullPageBtn) {
   fullPageBtn.addEventListener('click', event => {
     // 非 HTML 文章这个入口是隐藏的，不响应
     if (!fullPageBtn.getAttribute('href')) return;
+    // 普通 HTML 文章没有沙箱 iframe，不能原地展开，仍按原链接打开完整页面
+    if (fullPageBtn.dataset.readerMode !== '1') return;
     // 修饰键与中键仍然交给浏览器：需要真正的新标签页时依然可用
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
@@ -542,10 +544,13 @@ function renderPost(post) {
   const filePath = post.path;
   const fileType = post.type || (filePath.endsWith('.pdf') ? 'pdf' : 'markdown');
   const isHtmlPost = fileType === 'html' || /\.(html?|htm)$/i.test(filePath);
+  // 只有沙箱页面（iframe 渲染的一整页）才进入沉浸态。普通 HTML 文章和 Markdown
+  // 一样由整个页面滚动，套上 reader-expanded 会把 body 锁住、内容滑不动。
+  const isSandboxPost = isHtmlPost && post.sandboxed === true;
 
   // 切换文章时退出沉浸式阅读，避免上一页的展开状态带到下一篇。
-  // HTML 文章稍后会统一进入沉浸态；这里若先退出再进入，首帧可能被画成窄栏。
-  if (!isHtmlPost) exitReaderMode({ restoreScroll: false, restoreFocus: false });
+  // 沙箱文章稍后会统一进入沉浸态；这里若先退出再进入，首帧可能被画成窄栏。
+  if (!isSandboxPost) exitReaderMode({ restoreScroll: false, restoreFocus: false });
 
   // 首屏正文由服务端直接注入。这里若原样再赋一次 innerHTML，HTML 文章的 iframe
   // 会被销毁并重建，多一次请求、一次白屏。标记只对这一次渲染有效。
@@ -558,9 +563,11 @@ function renderPost(post) {
     if (isHtmlPost) {
       fullPageBtn.href = `/full/${encodePath(filePath)}`;
       fullPageBtn.style.display = 'inline-flex';
+      fullPageBtn.dataset.readerMode = isSandboxPost ? '1' : '0';
     } else {
       fullPageBtn.style.display = 'none';
       fullPageBtn.removeAttribute('href');
+      delete fullPageBtn.dataset.readerMode;
     }
   }
 
@@ -754,8 +761,8 @@ function renderPost(post) {
     }
   });
 
-  // HTML 文章本身就是一整页，默认直接以沉浸态打开；点右上角「退出全屏」回到带站点外壳的阅读视图
-  if (isHtmlPost) enterReaderMode({ animate: false, focusExit: false });
+  // 沙箱 HTML 文章本身就是一整页，默认直接以沉浸态打开；点右上角「退出全屏」回到带站点外壳的阅读视图
+  if (isSandboxPost) enterReaderMode({ animate: false, focusExit: false });
 }
 
 // 后台更新文章（用于更新访问量等可能变化的数据）

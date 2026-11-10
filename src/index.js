@@ -95,8 +95,9 @@ app.get('/', async (req, res) => {
         const content = await apiRoutes.getHomeContent();
         // data-server-rendered 让前端知道这段首屏 HTML 已是最新，不必再重建 iframe。
         home = `<div id="homeContent" class="markdown-body" data-server-rendered="1">${content.html}</div>`;
-        // HTML 首页首帧就该是沉浸态，否则脚本接管时会先窄后宽跳一下。
-        homeReaderMode = /\.(html?|htm)$/i.test(content.path || '');
+        // 沙箱 HTML 首页首帧就该是沉浸态，否则脚本接管时会先窄后宽跳一下。
+        // 普通 HTML 正文仍按文章排版，沉浸态会锁住滚动。
+        homeReaderMode = content.sandboxed === true;
       } catch (error) { /* The repository may still be starting. */ }
     }
     res.setHeader('Cache-Control', 'no-store');
@@ -384,7 +385,7 @@ app.get(['/post/*', '/article/*'], async (req, res) => {
     const post = apiRoutes.withSEO(await apiRoutes.getPost(file.path), req);
     res.setHeader('Cache-Control', 'no-store');
     res.send(renderPage(fs.readFileSync(indexHtmlPath, 'utf8'), { post, seo: post.seo,
-      readerMode: post.type === 'html',
+      readerMode: post.sandboxed === true,
       translations: getFrontendTranslations(), lang: i18n.getLang() }));
   } catch (error) {
     if (error.status === 404) return notFoundHandler(req, res);

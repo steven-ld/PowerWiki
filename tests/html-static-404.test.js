@@ -108,6 +108,9 @@ test('sandbox render mode embeds the original page in an isolated iframe', () =>
 
   const article = parseHtmlArticle(source, 'demo/lab.html');
   assert.equal(article.title, 'Lab');
+  // 只有沙箱页面才进入沉浸式阅读，普通 HTML 正文照常随页面滚动。
+  assert.equal(article.sandboxed, true);
+  assert.equal(parseHtmlArticle('<body><h1>plain</h1></body>', 'demo/plain.html').sandboxed, false);
   assert.match(article.html, /<iframe class="html-sandbox-frame" src="\/full\/demo\/lab\.html"/);
   assert.match(article.html, /sandbox="allow-scripts/);
   assert.doesNotMatch(article.html, /allow-same-origin/);
@@ -254,10 +257,13 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     assert.match(body, /src="\/api\/image\/docs\/local\.png"/);
     assert.match(body, /alt="local"/);
     assert.match(body, /href="\/post\/docs\/release-1\.0\.html"/);
+    // 普通 HTML 文章按文档排版：reader-expanded 会锁住 body 滚动，这里不能出现。
+    assert.doesNotMatch(articleBody, /<html[^>]*class="reader-expanded"|<body[^>]*class="reader-expanded"/);
 
     // API 返回同样的文章数据，原始内容仍可用于「原始」视图。
     const articleData = await (await request('/api/post/docs/guide.html')).json();
     assert.equal(articleData.type, 'html');
+    assert.equal(articleData.sandboxed, false);
     assert.equal(articleData.title, 'Guide Title');
     assert.match(articleData.raw, /window\.__XSS__/);
     assert.doesNotMatch(articleData.html, /window\.__XSS__/);
@@ -265,12 +271,16 @@ test('HTML pages, static priority, security headers, 404 and home stats', { time
     // 沙箱完整页面：文章正文是 iframe，原始页面由 /full/ 原样输出。
     const fullArticle = await (await request('/api/post/docs/full.html')).json();
     assert.equal(fullArticle.type, 'html');
+    assert.equal(fullArticle.sandboxed, true);
     assert.equal(fullArticle.title, 'Full Lab');
     assert.match(fullArticle.html, /<iframe class="html-sandbox-frame" src="\/full\/docs\/full\.html"/);
     assert.doesNotMatch(fullArticle.html, /__FULL__/);
     assert.match(fullArticle.raw, /__FULL__/);
 
     const fullArticlePage = await (await request('/post/docs/full.html')).text();
+    // 沙箱文章首帧即沉浸态，避免脚本接管时宽度跳一下。
+    assert.match(fullArticlePage, /<html[^>]*class="reader-expanded"/);
+    assert.match(fullArticlePage, /<body[^>]*class="reader-expanded"/);
     const fullRendered = fullArticlePage.match(/<div id="postBody"[^>]*>([\s\S]*?)<\/div>/);
     assert.ok(fullRendered, 'sandbox postBody rendered');
     assert.match(fullRendered[1], /<iframe class="html-sandbox-frame" src="\/full\/docs\/full\.html"/);
